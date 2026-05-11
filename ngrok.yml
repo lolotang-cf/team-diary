@@ -1,0 +1,13 @@
+# ngrok 配置文件
+# 使用前请先注册 ngrok 账号并获取 authtoken
+# 注册地址: https://ngrok.com/
+
+version: "2"
+authtoken: 3DZbqfAzX1AvvrI3BQPXfdWL7an_6R2B6hnZu2kZUW2Nc6Gom
+
+# 配置 HTTP 隧道
+tunnels:
+  diary:
+    addr: 3000
+    proto: http
+    host_header: localhost:3000

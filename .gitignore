@@ -1,0 +1,12 @@
+node_modules/
+*.log
+.env
+*.db
+cloudflared.exe
+ngrok.exe
+*.bat
+*.vbs
+*.pid
+nails.db
+.vscode/
+.DS_Store
