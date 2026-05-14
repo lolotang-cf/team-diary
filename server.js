@@ -110,6 +110,11 @@ async function initDatabase() {
 
 // ============ API 接口 ============
 
+// 版本检查（用于确认部署状态）
+app.get('/api/version', (req, res) => {
+    res.json({ version: '1.1.0', timestamp: new Date().toISOString() });
+});
+
 // 获取所有员工列表
 app.get('/api/employees', async (req, res) => {
     try {
@@ -294,10 +299,17 @@ app.get('/api/stats', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
 
     try {
-        const params = [];
-        let idx = 1;
+        // 今日统计（最基础的查询，先确认数据库连接正常）
+        const totalEmployees = await pool.query("SELECT COUNT(*) as count FROM employees");
+        const total = parseInt(totalEmployees.rows[0].count);
 
-        // 部门统计
+        const todaySubmitted = await pool.query(
+            "SELECT COUNT(DISTINCT employee_id) as count FROM daily_reports WHERE report_date = $1",
+            [today]
+        );
+        const submitted = parseInt(todaySubmitted.rows[0].count);
+
+        // 部门统计（简化版，避免复杂的LEFT JOIN条件问题）
         let deptSql = `
             SELECT e.department,
                    COUNT(DISTINCT e.id) as total_employees,
@@ -306,75 +318,51 @@ app.get('/api/stats', async (req, res) => {
             FROM employees e
             LEFT JOIN daily_reports r ON e.id = r.employee_id
         `;
-        const deptConditions = [];
-        if (start_date) {
-            deptConditions.push(`r.report_date >= $${idx++}`);
+        const params = [];
+        if (start_date && end_date) {
+            deptSql += ` WHERE r.report_date >= $1 AND r.report_date <= $2`;
+            params.push(start_date, end_date);
+        } else if (start_date) {
+            deptSql += ` WHERE r.report_date >= $1`;
             params.push(start_date);
-        }
-        if (end_date) {
-            deptConditions.push(`r.report_date <= $${idx++}`);
+        } else if (end_date) {
+            deptSql += ` WHERE r.report_date <= $1`;
             params.push(end_date);
-        }
-        if (deptConditions.length > 0) {
-            deptSql += ' WHERE ' + deptConditions.join(' AND ');
         }
         deptSql += ' GROUP BY e.department';
         const deptResult = await pool.query(deptSql, params);
 
         // 每日趋势
-        idx = 1;
-        const trendParams = [];
-        let trendSql = `SELECT report_date, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress FROM daily_reports WHERE 1=1`;
-        if (start_date) {
-            trendSql += ` AND report_date >= $${idx++}`;
-            trendParams.push(start_date);
-        }
-        if (end_date) {
-            trendSql += ` AND report_date <= $${idx++}`;
-            trendParams.push(end_date);
-        }
-        trendSql += ' GROUP BY report_date ORDER BY report_date DESC LIMIT 30';
-        const trendResult = await pool.query(trendSql, trendParams);
-
-        // 任务分类
-        idx = 1;
-        const catParams = [];
-        let catSql = `SELECT task_category, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress FROM daily_reports WHERE task_category IS NOT NULL AND task_category != ''`;
-        if (start_date) {
-            catSql += ` AND report_date >= $${idx++}`;
-            catParams.push(start_date);
-        }
-        if (end_date) {
-            catSql += ` AND report_date <= $${idx++}`;
-            catParams.push(end_date);
-        }
-        catSql += ' GROUP BY task_category';
-        const categoryResult = await pool.query(catSql, catParams);
-
-        // 完成情况
-        idx = 1;
-        const compParams = [];
-        let compSql = `SELECT completion_status, COUNT(*) as count FROM daily_reports WHERE completion_status IS NOT NULL AND completion_status != ''`;
-        if (start_date) {
-            compSql += ` AND report_date >= $${idx++}`;
-            compParams.push(start_date);
-        }
-        if (end_date) {
-            compSql += ` AND report_date <= $${idx++}`;
-            compParams.push(end_date);
-        }
-        compSql += ' GROUP BY completion_status';
-        const completionResult = await pool.query(compSql, compParams);
-
-        // 今日统计
-        const totalEmployees = await pool.query("SELECT COUNT(*) as count FROM employees");
-        const todaySubmitted = await pool.query(
-            "SELECT COUNT(DISTINCT employee_id) as count FROM daily_reports WHERE report_date = $1",
-            [today]
+        const trendResult = await pool.query(
+            `SELECT report_date, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress
+             FROM daily_reports
+             WHERE ($1::date IS NULL OR report_date >= $1::date)
+               AND ($2::date IS NULL OR report_date <= $2::date)
+             GROUP BY report_date ORDER BY report_date DESC LIMIT 30`,
+            [start_date || null, end_date || null]
         );
 
-        const total = parseInt(totalEmployees.rows[0].count);
-        const submitted = parseInt(todaySubmitted.rows[0].count);
+        // 任务分类
+        const categoryResult = await pool.query(
+            `SELECT task_category, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress
+             FROM daily_reports
+             WHERE task_category IS NOT NULL AND task_category != ''
+               AND ($1::date IS NULL OR report_date >= $1::date)
+               AND ($2::date IS NULL OR report_date <= $2::date)
+             GROUP BY task_category`,
+            [start_date || null, end_date || null]
+        );
+
+        // 完成情况
+        const completionResult = await pool.query(
+            `SELECT completion_status, COUNT(*) as count
+             FROM daily_reports
+             WHERE completion_status IS NOT NULL AND completion_status != ''
+               AND ($1::date IS NULL OR report_date >= $1::date)
+               AND ($2::date IS NULL OR report_date <= $2::date)
+             GROUP BY completion_status`,
+            [start_date || null, end_date || null]
+        );
 
         res.json({
             success: true,
@@ -392,7 +380,7 @@ app.get('/api/stats', async (req, res) => {
         });
     } catch (err) {
         console.error('Stats API error:', err);
-        res.json({ success: false, message: '统计失败: ' + err.message, error: err.message });
+        res.json({ success: false, message: '统计失败: ' + err.message, error: err.message, stack: err.stack });
     }
 });
 
