@@ -1,6 +1,6 @@
 /**
  * 团队工作日报系统 - 服务器端
- * 使用 sql.js (纯JS SQLite，无需编译)
+ * 使用 Railway Postgres (持久化存储)
  */
 
 const express = require('express');
@@ -8,8 +8,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
-const initSqlJs = require('sql.js');
+const { Pool } = require('pg');
 
 const app = express();
 const server = http.createServer(app);
@@ -25,149 +24,116 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 数据目录 - Railway持久化存储在 /data
-const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, 'data');
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-const DB_PATH = path.join(DATA_DIR, 'diary.db');
-
-// 全局数据库变量
-let db = null;
+// PostgreSQL 连接池 - Railway自动注入DATABASE_URL
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
 
 // 初始化数据库
 async function initDatabase() {
-    const SQL = await initSqlJs();
-
-    // 尝试加载现有数据库
+    const client = await pool.connect();
     try {
-        if (fs.existsSync(DB_PATH)) {
-            const buffer = fs.readFileSync(DB_PATH);
-            db = new SQL.Database(buffer);
-            console.log('✓ 已加载现有数据库');
-        } else {
-            db = new SQL.Database();
-            console.log('✓ 已创建新数据库');
+        // 创建员工表
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS employees (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                department TEXT DEFAULT '催收部',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // 创建日报表
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS daily_reports (
+                id SERIAL PRIMARY KEY,
+                employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+                report_date DATE NOT NULL,
+                task_category TEXT,
+                customer_name TEXT,
+                customer_id TEXT,
+                task_content TEXT,
+                progress INTEGER DEFAULT 0,
+                completion_status TEXT,
+                achievement TEXT,
+                difficulties TEXT,
+                next_plan TEXT,
+                follow_result TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(employee_id, report_date)
+            )
+        `);
+
+        // 创建批注表
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS admin_notes (
+                id SERIAL PRIMARY KEY,
+                report_id INTEGER NOT NULL REFERENCES daily_reports(id) ON DELETE CASCADE,
+                content TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // 初始化示例员工数据
+        const countRes = await client.query("SELECT COUNT(*) as count FROM employees");
+        const count = parseInt(countRes.rows[0].count);
+
+        if (count === 0) {
+            const employees = [
+                ['房航宇', '南昌人才发展主管'],
+                ['曹艳斌', '太原人才发展主管'],
+                ['鹿翔宇', '太原培训与人才发展主管'],
+                ['韩淼', '太原培训专员'],
+                ['黄婷钠', '太原培训专员'],
+                ['马晋燕', '太原培训专员'],
+                ['麻万鑫', '晋中培训专员'],
+                ['王彦卿', '晋中培训专员']
+            ];
+
+            for (const emp of employees) {
+                await client.query(
+                    "INSERT INTO employees (name, department) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING",
+                    emp
+                );
+            }
+            console.log('已初始化8名员工');
         }
-    } catch (err) {
-        db = new SQL.Database();
-        console.log('✓ 已创建新数据库');
+
+        console.log('数据库初始化完成');
+    } finally {
+        client.release();
     }
-
-    // 创建表
-    db.run(`
-        CREATE TABLE IF NOT EXISTS employees (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            department TEXT DEFAULT '催收部',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    db.run(`
-        CREATE TABLE IF NOT EXISTS daily_reports (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            employee_id INTEGER NOT NULL,
-            report_date DATE NOT NULL,
-            task_category TEXT,
-            customer_name TEXT,
-            customer_id TEXT,
-            task_content TEXT,
-            progress INTEGER DEFAULT 0,
-            completion_status TEXT,
-            achievement TEXT,
-            difficulties TEXT,
-            next_plan TEXT,
-            follow_result TEXT,
-            notes TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (employee_id) REFERENCES employees(id),
-            UNIQUE(employee_id, report_date)
-        )
-    `);
-
-    db.run(`
-        CREATE TABLE IF NOT EXISTS admin_notes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            report_id INTEGER NOT NULL,
-            content TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (report_id) REFERENCES daily_reports(id)
-        )
-    `);
-
-    // 初始化示例员工数据
-    const result = db.exec("SELECT COUNT(*) as count FROM employees");
-    const count = result.length > 0 ? result[0].values[0][0] : 0;
-
-    if (count === 0) {
-        const employees = [
-            ['房航宇', '南昌人才发展主管'],
-            ['曹艳斌', '太原人才发展主管'],
-            ['鹿翔宇', '太原培训与人才发展主管'],
-            ['韩淼', '太原培训专员'],
-            ['黄婷钠', '太原培训专员'],
-            ['马晋燕', '太原培训专员'],
-            ['麻万鑫', '晋中培训专员'],
-            ['王彦卿', '晋中培训专员']
-        ];
-
-        const stmt = db.prepare("INSERT INTO employees (name, department) VALUES (?, ?)");
-        employees.forEach(emp => {
-            stmt.run([emp[0], emp[1]]);
-        });
-        stmt.free();
-        console.log('✓ 已初始化8名员工');
-    }
-
-    // 保存数据库
-    saveDatabase();
-}
-
-// 保存数据库到文件
-function saveDatabase() {
-    if (db) {
-        const data = db.export();
-        const buffer = Buffer.from(data);
-        fs.writeFileSync(DB_PATH, buffer);
-    }
-}
-
-// 辅助函数：将查询结果转为数组
-function queryToArray(result) {
-    if (!result || result.length === 0) return [];
-    const columns = result[0].columns;
-    return result[0].values.map(row => {
-        const obj = {};
-        columns.forEach((col, i) => {
-            obj[col] = row[i];
-        });
-        return obj;
-    });
 }
 
 // ============ API 接口 ============
 
 // 获取所有员工列表
-app.get('/api/employees', (req, res) => {
-    const result = db.exec("SELECT * FROM employees ORDER BY id");
-    const employees = queryToArray(result);
-    res.json({ success: true, data: employees });
+app.get('/api/employees', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM employees ORDER BY id");
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, message: '查询失败' });
+    }
 });
 
 // 添加员工
-app.post('/api/employees', (req, res) => {
+app.post('/api/employees', async (req, res) => {
     const { name, department } = req.body;
     if (!name) {
         return res.json({ success: false, message: '姓名不能为空' });
     }
 
     try {
-        db.run("INSERT INTO employees (name, department) VALUES (?, ?)", [name, department || '催收部']);
-        const result = db.exec("SELECT * FROM employees WHERE id = last_insert_rowid()");
-        const employee = queryToArray(result)[0];
-        saveDatabase();
+        const result = await pool.query(
+            "INSERT INTO employees (name, department) VALUES ($1, $2) RETURNING *",
+            [name, department || '催收部']
+        );
+        const employee = result.rows[0];
         io.emit('employee_added', employee);
         res.json({ success: true, data: employee });
     } catch (err) {
@@ -176,21 +142,11 @@ app.post('/api/employees', (req, res) => {
 });
 
 // 提交/更新日报
-app.post('/api/reports', (req, res) => {
+app.post('/api/reports', async (req, res) => {
     const {
-        employee_id,
-        report_date,
-        task_category,
-        customer_name,
-        customer_id,
-        task_content,
-        progress,
-        completion_status,
-        achievement,
-        difficulties,
-        next_plan,
-        follow_result,
-        notes
+        employee_id, report_date, task_category, customer_name, customer_id,
+        task_content, progress, completion_status, achievement, difficulties,
+        next_plan, follow_result, notes
     } = req.body;
 
     if (!employee_id || !report_date) {
@@ -199,68 +155,61 @@ app.post('/api/reports', (req, res) => {
 
     try {
         // 检查是否已存在
-        const existing = db.exec(`SELECT id FROM daily_reports WHERE employee_id = ${employee_id} AND report_date = '${report_date}'`);
-        const today = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        const existing = await pool.query(
+            "SELECT id FROM daily_reports WHERE employee_id = $1 AND report_date = $2",
+            [employee_id, report_date]
+        );
 
-        if (existing.length > 0 && existing[0].values.length > 0) {
+        let report;
+        if (existing.rows.length > 0) {
             // 更新
-            db.run(`
+            const result = await pool.query(`
                 UPDATE daily_reports SET
-                    task_category = ?, customer_name = ?, customer_id = ?,
-                    task_content = ?, progress = ?, completion_status = ?,
-                    achievement = ?, difficulties = ?, next_plan = ?,
-                    follow_result = ?, notes = ?, updated_at = ?
-                WHERE employee_id = ? AND report_date = ?
+                    task_category = $1, customer_name = $2, customer_id = $3,
+                    task_content = $4, progress = $5, completion_status = $6,
+                    achievement = $7, difficulties = $8, next_plan = $9,
+                    follow_result = $10, notes = $11, updated_at = CURRENT_TIMESTAMP
+                WHERE employee_id = $12 AND report_date = $13
+                RETURNING *
             `, [
                 task_category || '', customer_name || '', customer_id || '',
                 task_content || '', progress || 0, completion_status || '',
                 achievement || '', difficulties || '', next_plan || '',
-                follow_result || '', notes || '', today,
+                follow_result || '', notes || '',
                 employee_id, report_date
             ]);
-
-            const reportResult = db.exec(`SELECT * FROM daily_reports WHERE id = ${existing[0].values[0][0]}`);
-            const report = queryToArray(reportResult)[0];
-
-            // 获取员工名称
-            const empResult = db.exec(`SELECT name, department FROM employees WHERE id = ${employee_id}`);
-            if (empResult.length > 0) {
-                report.employee_name = empResult[0].values[0][0];
-                report.department = empResult[0].values[0][1];
-            }
-
-            saveDatabase();
+            report = result.rows[0];
             io.emit('report_updated', report);
-            res.json({ success: true, data: report, message: '日报已更新' });
         } else {
             // 新增
-            db.run(`
+            const result = await pool.query(`
                 INSERT INTO daily_reports (
                     employee_id, report_date, task_category, customer_name, customer_id,
                     task_content, progress, completion_status, achievement, difficulties,
-                    next_plan, follow_result, notes, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    next_plan, follow_result, notes
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                RETURNING *
             `, [
                 employee_id, report_date, task_category || '', customer_name || '',
                 customer_id || '', task_content || '', progress || 0, completion_status || '',
                 achievement || '', difficulties || '', next_plan || '',
-                follow_result || '', notes || '', today, today
+                follow_result || '', notes || ''
             ]);
-
-            const reportResult = db.exec("SELECT * FROM daily_reports WHERE id = last_insert_rowid()");
-            const report = queryToArray(reportResult)[0];
-
-            // 获取员工名称
-            const empResult = db.exec(`SELECT name, department FROM employees WHERE id = ${employee_id}`);
-            if (empResult.length > 0) {
-                report.employee_name = empResult[0].values[0][0];
-                report.department = empResult[0].values[0][1];
-            }
-
-            saveDatabase();
+            report = result.rows[0];
             io.emit('report_added', report);
-            res.json({ success: true, data: report, message: '日报已提交' });
         }
+
+        // 获取员工名称
+        const empResult = await pool.query(
+            "SELECT name, department FROM employees WHERE id = $1",
+            [employee_id]
+        );
+        if (empResult.rows.length > 0) {
+            report.employee_name = empResult.rows[0].name;
+            report.department = empResult.rows[0].department;
+        }
+
+        res.json({ success: true, data: report });
     } catch (err) {
         console.error(err);
         res.json({ success: false, message: '提交失败' });
@@ -268,7 +217,7 @@ app.post('/api/reports', (req, res) => {
 });
 
 // 获取某人的日报列表
-app.get('/api/reports/employee/:id', (req, res) => {
+app.get('/api/reports/employee/:id', async (req, res) => {
     const { id } = req.params;
     const { start_date, end_date } = req.query;
 
@@ -276,25 +225,33 @@ app.get('/api/reports/employee/:id', (req, res) => {
         SELECT r.*, e.name as employee_name, e.department
         FROM daily_reports r
         JOIN employees e ON r.employee_id = e.id
-        WHERE r.employee_id = ${id}
+        WHERE r.employee_id = $1
     `;
+    const params = [id];
+    let paramIdx = 2;
 
     if (start_date) {
-        sql += ` AND r.report_date >= '${start_date}'`;
+        sql += ` AND r.report_date >= $${paramIdx++}`;
+        params.push(start_date);
     }
     if (end_date) {
-        sql += ` AND r.report_date <= '${end_date}'`;
+        sql += ` AND r.report_date <= $${paramIdx++}`;
+        params.push(end_date);
     }
 
     sql += ' ORDER BY r.report_date DESC';
 
-    const result = db.exec(sql);
-    const reports = queryToArray(result);
-    res.json({ success: true, data: reports });
+    try {
+        const result = await pool.query(sql, params);
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, message: '查询失败' });
+    }
 });
 
 // 获取所有日报
-app.get('/api/reports/all', (req, res) => {
+app.get('/api/reports/all', async (req, res) => {
     const { date, department, keyword } = req.query;
 
     let sql = `
@@ -303,106 +260,126 @@ app.get('/api/reports/all', (req, res) => {
         JOIN employees e ON r.employee_id = e.id
         WHERE 1=1
     `;
+    const params = [];
+    let paramIdx = 1;
 
     if (date) {
-        sql += ` AND r.report_date = '${date}'`;
+        sql += ` AND r.report_date = $${paramIdx++}`;
+        params.push(date);
     }
     if (department) {
-        sql += ` AND e.department = '${department}'`;
+        sql += ` AND e.department = $${paramIdx++}`;
+        params.push(department);
     }
     if (keyword) {
-        sql += ` AND (e.name LIKE '%${keyword}%' OR r.task_content LIKE '%${keyword}%' OR r.difficulties LIKE '%${keyword}%')`;
+        sql += ` AND (e.name ILIKE $${paramIdx} OR r.task_content ILIKE $${paramIdx} OR r.difficulties ILIKE $${paramIdx})`;
+        params.push(`%${keyword}%`);
+        paramIdx++;
     }
 
     sql += ' ORDER BY r.report_date DESC, e.name ASC';
 
-    const result = db.exec(sql);
-    const reports = queryToArray(result);
-    res.json({ success: true, data: reports });
+    try {
+        const result = await pool.query(sql, params);
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, message: '查询失败' });
+    }
 });
 
 // 获取统计数据
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
     const { start_date, end_date } = req.query;
-
     const today = new Date().toISOString().split('T')[0];
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    // 部门统计
-    const deptResult = db.exec(`
-        SELECT e.department,
-               COUNT(DISTINCT e.id) as total_employees,
-               COUNT(r.id) as report_count,
-               AVG(r.progress) as avg_progress
-        FROM employees e
-        LEFT JOIN daily_reports r ON e.id = r.employee_id
-            ${start_date ? `AND r.report_date >= '${start_date}'` : ''}
-            ${end_date ? `AND r.report_date <= '${end_date}'` : ''}
-        GROUP BY e.department
-    `);
+    try {
+        // 部门统计
+        const deptResult = await pool.query(`
+            SELECT e.department,
+                   COUNT(DISTINCT e.id) as total_employees,
+                   COUNT(r.id) as report_count,
+                   COALESCE(AVG(r.progress), 0) as avg_progress
+            FROM employees e
+            LEFT JOIN daily_reports r ON e.id = r.employee_id
+                ${start_date ? `AND r.report_date >= $1` : ''}
+                ${end_date ? `AND r.report_date <= $2` : ''}
+            GROUP BY e.department
+        `, [start_date, end_date].filter(Boolean));
 
-    // 每日趋势
-    const trendResult = db.exec(`
-        SELECT report_date, COUNT(*) as count, AVG(progress) as avg_progress
-        FROM daily_reports
-        WHERE 1=1
-        ${start_date ? `AND report_date >= '${start_date}'` : ''}
-        ${end_date ? `AND report_date <= '${end_date}'` : ''}
-        GROUP BY report_date
-        ORDER BY report_date DESC
-        LIMIT 30
-    `);
+        // 每日趋势
+        const trendResult = await pool.query(`
+            SELECT report_date, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress
+            FROM daily_reports
+            WHERE 1=1
+            ${start_date ? `AND report_date >= $1` : ''}
+            ${end_date ? `AND report_date <= $2` : ''}
+            GROUP BY report_date
+            ORDER BY report_date DESC
+            LIMIT 30
+        `, [start_date, end_date].filter(Boolean));
 
-    // 任务分类
-    const categoryResult = db.exec(`
-        SELECT task_category, COUNT(*) as count, AVG(progress) as avg_progress
-        FROM daily_reports
-        WHERE task_category IS NOT NULL AND task_category != ''
-        ${start_date ? `AND report_date >= '${start_date}'` : ''}
-        ${end_date ? `AND report_date <= '${end_date}'` : ''}
-        GROUP BY task_category
-    `);
+        // 任务分类
+        const categoryResult = await pool.query(`
+            SELECT task_category, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress
+            FROM daily_reports
+            WHERE task_category IS NOT NULL AND task_category != ''
+            ${start_date ? `AND report_date >= $1` : ''}
+            ${end_date ? `AND report_date <= $2` : ''}
+            GROUP BY task_category
+        `, [start_date, end_date].filter(Boolean));
 
-    // 完成情况
-    const completionResult = db.exec(`
-        SELECT completion_status, COUNT(*) as count
-        FROM daily_reports
-        WHERE completion_status IS NOT NULL AND completion_status != ''
-        ${start_date ? `AND report_date >= '${start_date}'` : ''}
-        ${end_date ? `AND report_date <= '${end_date}'` : ''}
-        GROUP BY completion_status
-    `);
+        // 完成情况
+        const completionResult = await pool.query(`
+            SELECT completion_status, COUNT(*) as count
+            FROM daily_reports
+            WHERE completion_status IS NOT NULL AND completion_status != ''
+            ${start_date ? `AND report_date >= $1` : ''}
+            ${end_date ? `AND report_date <= $2` : ''}
+            GROUP BY completion_status
+        `, [start_date, end_date].filter(Boolean));
 
-    // 今日统计
-    const totalEmployees = db.exec("SELECT COUNT(*) as count FROM employees");
-    const todaySubmitted = db.exec(`SELECT COUNT(DISTINCT employee_id) as count FROM daily_reports WHERE report_date = '${today}'`);
+        // 今日统计
+        const totalEmployees = await pool.query("SELECT COUNT(*) as count FROM employees");
+        const todaySubmitted = await pool.query(
+            "SELECT COUNT(DISTINCT employee_id) as count FROM daily_reports WHERE report_date = $1",
+            [today]
+        );
 
-    res.json({
-        success: true,
-        data: {
-            deptStats: queryToArray(deptResult),
-            dailyTrend: queryToArray(trendResult),
-            categoryStats: queryToArray(categoryResult),
-            completionStats: queryToArray(completionResult),
-            todayStats: {
-                submitted: todaySubmitted.length > 0 ? todaySubmitted[0].values[0][0] : 0,
-                total: totalEmployees.length > 0 ? totalEmployees[0].values[0][0] : 0,
-                rate: 0
+        const total = parseInt(totalEmployees.rows[0].count);
+        const submitted = parseInt(todaySubmitted.rows[0].count);
+
+        res.json({
+            success: true,
+            data: {
+                deptStats: deptResult.rows,
+                dailyTrend: trendResult.rows,
+                categoryStats: categoryResult.rows,
+                completionStats: completionResult.rows,
+                todayStats: {
+                    submitted: submitted,
+                    total: total,
+                    rate: total > 0 ? Math.round((submitted / total) * 100) : 0
+                }
             }
-        }
-    });
+        });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, message: '统计失败' });
+    }
 });
 
 // 添加批注
-app.post('/api/reports/:id/notes', (req, res) => {
+app.post('/api/reports/:id/notes', async (req, res) => {
     const { id } = req.params;
     const { content } = req.body;
 
     try {
-        db.run("INSERT INTO admin_notes (report_id, content) VALUES (?, ?)", [id, content]);
-        const result = db.exec("SELECT * FROM admin_notes WHERE id = last_insert_rowid()");
-        const note = queryToArray(result)[0];
-        saveDatabase();
+        const result = await pool.query(
+            "INSERT INTO admin_notes (report_id, content) VALUES ($1, $2) RETURNING *",
+            [id, content]
+        );
+        const note = result.rows[0];
         io.emit('note_added', { report_id: id, note });
         res.json({ success: true, data: note });
     } catch (err) {
@@ -411,20 +388,24 @@ app.post('/api/reports/:id/notes', (req, res) => {
 });
 
 // 获取批注
-app.get('/api/reports/:id/notes', (req, res) => {
+app.get('/api/reports/:id/notes', async (req, res) => {
     const { id } = req.params;
-    const result = db.exec(`SELECT * FROM admin_notes WHERE report_id = ${id} ORDER BY created_at DESC`);
-    const notes = queryToArray(result);
-    res.json({ success: true, data: notes });
+    try {
+        const result = await pool.query(
+            "SELECT * FROM admin_notes WHERE report_id = $1 ORDER BY created_at DESC",
+            [id]
+        );
+        res.json({ success: true, data: result.rows });
+    } catch (err) {
+        res.json({ success: false, message: '查询失败' });
+    }
 });
 
 // 删除员工
-app.delete('/api/employees/:id', (req, res) => {
+app.delete('/api/employees/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        db.run(`DELETE FROM daily_reports WHERE employee_id = ${id}`);
-        db.run(`DELETE FROM employees WHERE id = ${id}`);
-        saveDatabase();
+        await pool.query("DELETE FROM employees WHERE id = $1", [id]);
         io.emit('employee_deleted', { id });
         res.json({ success: true });
     } catch (err) {
@@ -434,14 +415,14 @@ app.delete('/api/employees/:id', (req, res) => {
 
 // ============ Socket.IO 实时通信 ============
 io.on('connection', (socket) => {
-    console.log('✓ 客户端连接:', socket.id);
+    console.log('客户端连接:', socket.id);
 
     socket.on('submit_report', (data) => {
         io.emit('report_updated', data);
     });
 
     socket.on('disconnect', () => {
-        console.log('✗ 客户端断开:', socket.id);
+        console.log('客户端断开:', socket.id);
     });
 });
 
@@ -453,13 +434,8 @@ async function start() {
 
     server.listen(PORT, () => {
         console.log('');
-        console.log('╔════════════════════════════════════════════════════════════╗');
-        console.log('║        团队工作日报系统 - 服务器已启动                      ║');
-        console.log('╠════════════════════════════════════════════════════════════╣');
-        console.log(`║  本地访问:  http://localhost:${PORT}                           ║`);
-        console.log('║  员工日报:  http://localhost:3000/index.html                 ║');
-        console.log('║  管理看板:  http://localhost:3000/admin.html                ║');
-        console.log('╚════════════════════════════════════════════════════════════╝');
+        console.log('团队工作日报系统 - 服务器已启动');
+        console.log(`本地访问: http://localhost:${PORT}`);
         console.log('');
     });
 }
