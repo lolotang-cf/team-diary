@@ -596,8 +596,8 @@
         
         // 中文分词简单实现
         function tokenizeChinese(text) {
-            // 移除标点符号
-            text = text.replace(/[，。！？、；：""''【】《》（）\u4e00-\u9fa5]/g, ' ');
+            // 移除标点符号（保留中文汉字）
+            text = text.replace(/[，。！？、；：""''【】《》（）]/g, ' ');
             // 简单的中文分词：按2-4字词滑动窗口提取
             const words = [];
             for (let i = 0; i < text.length - 1; i++) {
@@ -859,13 +859,13 @@
                             <span class="detail-employee-count">${empData.tasks.length} 次提及</span>
                         </div>
                         <div class="detail-employee-dates">
-                            ${uniqueDates.map(d => `<span class="date-tag">${d}</span>`).join('')}
+                            ${uniqueDates.map(d => `<span class="date-tag">${formatDate(d)}</span>`).join('')}
                         </div>
                         <div class="detail-employee-tasks">
                             ${empData.tasks.map((task, idx) => `
                                 <div class="detail-task-item">
                                     <span class="detail-task-num">#${idx + 1}</span>
-                                    <span class="detail-task-date">${task.date}</span>
+                                    <span class="detail-task-date">${formatDate(task.date)}</span>
                                     <span class="detail-task-status ${getStatusClass(task.status)}">${task.status || '未设置'}</span>
                                     <div class="detail-task-desc">${escapeHtml(task.desc)}</div>
                                 </div>
@@ -884,7 +884,7 @@
                     <div class="timeline-item">
                         <div class="timeline-date">
                             <span class="timeline-dot"></span>
-                            <span class="timeline-date-text">${date}</span>
+                            <span class="timeline-date-text">${formatDate(date)}</span>
                             <span class="timeline-count">${dayTasks.length} 项</span>
                         </div>
                         <div class="timeline-tasks">
@@ -979,6 +979,16 @@
         function truncate(text, maxLen) {
             if (text.length <= maxLen) return text;
             return text.substring(0, maxLen) + '...';
+        }
+
+        // 格式化日期
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            // 处理 ISO 格式日期 (2026-05-13T00:00:00.000Z)
+            if (dateStr.includes('T')) {
+                return dateStr.split('T')[0];
+            }
+            return dateStr;
         }
 
         function escapeHtml(text) {

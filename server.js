@@ -306,13 +306,17 @@ app.get('/api/stats', async (req, res) => {
             FROM employees e
             LEFT JOIN daily_reports r ON e.id = r.employee_id
         `;
+        const deptConditions = [];
         if (start_date) {
-            deptSql += ` AND r.report_date >= $${idx++}`;
+            deptConditions.push(`r.report_date >= $${idx++}`);
             params.push(start_date);
         }
         if (end_date) {
-            deptSql += ` AND r.report_date <= $${idx++}`;
+            deptConditions.push(`r.report_date <= $${idx++}`);
             params.push(end_date);
+        }
+        if (deptConditions.length > 0) {
+            deptSql += ' WHERE ' + deptConditions.join(' AND ');
         }
         deptSql += ' GROUP BY e.department';
         const deptResult = await pool.query(deptSql, params);
