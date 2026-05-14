@@ -294,50 +294,73 @@ app.get('/api/stats', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
 
     try {
+        const params = [];
+        let idx = 1;
+
         // 部门统计
-        const deptResult = await pool.query(`
+        let deptSql = `
             SELECT e.department,
                    COUNT(DISTINCT e.id) as total_employees,
                    COUNT(r.id) as report_count,
                    COALESCE(AVG(r.progress), 0) as avg_progress
             FROM employees e
             LEFT JOIN daily_reports r ON e.id = r.employee_id
-                ${start_date ? `AND r.report_date >= $1` : ''}
-                ${end_date ? `AND r.report_date <= $2` : ''}
-            GROUP BY e.department
-        `, [start_date, end_date].filter(Boolean));
+        `;
+        if (start_date) {
+            deptSql += ` AND r.report_date >= $${idx++}`;
+            params.push(start_date);
+        }
+        if (end_date) {
+            deptSql += ` AND r.report_date <= $${idx++}`;
+            params.push(end_date);
+        }
+        deptSql += ' GROUP BY e.department';
+        const deptResult = await pool.query(deptSql, params);
 
         // 每日趋势
-        const trendResult = await pool.query(`
-            SELECT report_date, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress
-            FROM daily_reports
-            WHERE 1=1
-            ${start_date ? `AND report_date >= $1` : ''}
-            ${end_date ? `AND report_date <= $2` : ''}
-            GROUP BY report_date
-            ORDER BY report_date DESC
-            LIMIT 30
-        `, [start_date, end_date].filter(Boolean));
+        idx = 1;
+        const trendParams = [];
+        let trendSql = `SELECT report_date, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress FROM daily_reports WHERE 1=1`;
+        if (start_date) {
+            trendSql += ` AND report_date >= $${idx++}`;
+            trendParams.push(start_date);
+        }
+        if (end_date) {
+            trendSql += ` AND report_date <= $${idx++}`;
+            trendParams.push(end_date);
+        }
+        trendSql += ' GROUP BY report_date ORDER BY report_date DESC LIMIT 30';
+        const trendResult = await pool.query(trendSql, trendParams);
 
         // 任务分类
-        const categoryResult = await pool.query(`
-            SELECT task_category, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress
-            FROM daily_reports
-            WHERE task_category IS NOT NULL AND task_category != ''
-            ${start_date ? `AND report_date >= $1` : ''}
-            ${end_date ? `AND report_date <= $2` : ''}
-            GROUP BY task_category
-        `, [start_date, end_date].filter(Boolean));
+        idx = 1;
+        const catParams = [];
+        let catSql = `SELECT task_category, COUNT(*) as count, COALESCE(AVG(progress), 0) as avg_progress FROM daily_reports WHERE task_category IS NOT NULL AND task_category != ''`;
+        if (start_date) {
+            catSql += ` AND report_date >= $${idx++}`;
+            catParams.push(start_date);
+        }
+        if (end_date) {
+            catSql += ` AND report_date <= $${idx++}`;
+            catParams.push(end_date);
+        }
+        catSql += ' GROUP BY task_category';
+        const categoryResult = await pool.query(catSql, catParams);
 
         // 完成情况
-        const completionResult = await pool.query(`
-            SELECT completion_status, COUNT(*) as count
-            FROM daily_reports
-            WHERE completion_status IS NOT NULL AND completion_status != ''
-            ${start_date ? `AND report_date >= $1` : ''}
-            ${end_date ? `AND report_date <= $2` : ''}
-            GROUP BY completion_status
-        `, [start_date, end_date].filter(Boolean));
+        idx = 1;
+        const compParams = [];
+        let compSql = `SELECT completion_status, COUNT(*) as count FROM daily_reports WHERE completion_status IS NOT NULL AND completion_status != ''`;
+        if (start_date) {
+            compSql += ` AND report_date >= $${idx++}`;
+            compParams.push(start_date);
+        }
+        if (end_date) {
+            compSql += ` AND report_date <= $${idx++}`;
+            compParams.push(end_date);
+        }
+        compSql += ' GROUP BY completion_status';
+        const completionResult = await pool.query(compSql, compParams);
 
         // 今日统计
         const totalEmployees = await pool.query("SELECT COUNT(*) as count FROM employees");
