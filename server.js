@@ -20,7 +20,8 @@ const io = new Server(server, {
     }
 });
 
-// 中间�?app.use(cors());
+// 中间件
+app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -31,45 +32,53 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 const DB_PATH = path.join(DATA_DIR, 'diary.db');
 
-// 全局数据库变�?let db = null;
+// 全局数据库变量
+let db = null;
 
 // 初始化数据库
 async function initDatabase() {
     const SQL = await initSqlJs();
 
-    // 尝试加载现有数据�?    try {
+    // 尝试加载现有数据库
+    try {
         if (fs.existsSync(DB_PATH)) {
             const buffer = fs.readFileSync(DB_PATH);
             db = new SQL.Database(buffer);
-            console.log('�?已加载现有数据库');
+            console.log('✓ 已加载现有数据库');
         } else {
             db = new SQL.Database();
-            console.log('�?已创建新数据�?);
+            console.log('✓ 已创建新数据库');
         }
     } catch (err) {
         db = new SQL.Database();
-        console.log('�?已创建新数据�?);
+        console.log('✓ 已创建新数据库');
     }
 
-    // 创建�?    db.run(`
+    // 创建表
+    db.run(`
         CREATE TABLE IF NOT EXISTS employees (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
-            department TEXT DEFAULT '催收�?,
+            department TEXT DEFAULT '催收部',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
-    // 删除旧表并重新创建（测试阶段�?    db.run(`DROP TABLE IF EXISTS daily_reports`);
     db.run(`
-        CREATE TABLE daily_reports (
+        CREATE TABLE IF NOT EXISTS daily_reports (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             employee_id INTEGER NOT NULL,
             report_date DATE NOT NULL,
-            tasks TEXT,
+            task_category TEXT,
+            customer_name TEXT,
+            customer_id TEXT,
+            task_content TEXT,
+            progress INTEGER DEFAULT 0,
+            completion_status TEXT,
             achievement TEXT,
             difficulties TEXT,
             next_plan TEXT,
+            follow_result TEXT,
             notes TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -88,21 +97,20 @@ async function initDatabase() {
         )
     `);
 
-    // 初始化示例员工数�?    const result = db.exec("SELECT COUNT(*) as count FROM employees");
+    // 初始化示例员工数据
+    const result = db.exec("SELECT COUNT(*) as count FROM employees");
     const count = result.length > 0 ? result[0].values[0][0] : 0;
 
     if (count === 0) {
         const employees = [
-            ['房航�?, '南昌人才发展主管'],
-            ['曹艳�?, '太原人才发展主管'],
-            ['鹿翔�?, '太原培训与人才发展主�?],
+            ['房航宇', '南昌人才发展主管'],
+            ['曹艳斌', '太原人才发展主管'],
+            ['鹿翔宇', '太原培训与人才发展主管'],
             ['韩淼', '太原培训专员'],
-            ['黄婷�?, '太原培训专员'],
-            ['马晋�?, '太原培训专员'],
-            ['麻万�?, '晋中培训专员'],
-            ['王彦�?, '晋中培训专员'],
-            ['刘芬�?, '长沙培训专员'],
-            ['徐紫�?, '长沙培训专员']
+            ['黄婷钠', '太原培训专员'],
+            ['马晋燕', '太原培训专员'],
+            ['麻万鑫', '晋中培训专员'],
+            ['王彦卿', '晋中培训专员']
         ];
 
         const stmt = db.prepare("INSERT INTO employees (name, department) VALUES (?, ?)");
@@ -110,10 +118,11 @@ async function initDatabase() {
             stmt.run([emp[0], emp[1]]);
         });
         stmt.free();
-        console.log('�?已初始化8名员�?);
+        console.log('✓ 已初始化8名员工');
     }
 
-    // 保存数据�?    saveDatabase();
+    // 保存数据库
+    saveDatabase();
 }
 
 // 保存数据库到文件
@@ -140,7 +149,8 @@ function queryToArray(result) {
 
 // ============ API 接口 ============
 
-// 获取所有员工列�?app.get('/api/employees', (req, res) => {
+// 获取所有员工列表
+app.get('/api/employees', (req, res) => {
     const result = db.exec("SELECT * FROM employees ORDER BY id");
     const employees = queryToArray(result);
     res.json({ success: true, data: employees });
@@ -154,7 +164,7 @@ app.post('/api/employees', (req, res) => {
     }
 
     try {
-        db.run("INSERT INTO employees (name, department) VALUES (?, ?)", [name, department || '催收�?]);
+        db.run("INSERT INTO employees (name, department) VALUES (?, ?)", [name, department || '催收部']);
         const result = db.exec("SELECT * FROM employees WHERE id = last_insert_rowid()");
         const employee = queryToArray(result)[0];
         saveDatabase();
@@ -184,7 +194,7 @@ app.post('/api/reports', (req, res) => {
     } = req.body;
 
     if (!employee_id || !report_date) {
-        return res.json({ success: false, message: '员工ID和日期不能为�? });
+        return res.json({ success: false, message: '员工ID和日期不能为空' });
     }
 
     try {
@@ -221,7 +231,7 @@ app.post('/api/reports', (req, res) => {
 
             saveDatabase();
             io.emit('report_updated', report);
-            res.json({ success: true, data: report, message: '日报已更�? });
+            res.json({ success: true, data: report, message: '日报已更新' });
         } else {
             // 新增
             db.run(`
@@ -249,7 +259,7 @@ app.post('/api/reports', (req, res) => {
 
             saveDatabase();
             io.emit('report_added', report);
-            res.json({ success: true, data: report, message: '日报已提�? });
+            res.json({ success: true, data: report, message: '日报已提交' });
         }
     } catch (err) {
         console.error(err);
@@ -257,7 +267,8 @@ app.post('/api/reports', (req, res) => {
     }
 });
 
-// 获取某人的日报列�?app.get('/api/reports/employee/:id', (req, res) => {
+// 获取某人的日报列表
+app.get('/api/reports/employee/:id', (req, res) => {
     const { id } = req.params;
     const { start_date, end_date } = req.query;
 
@@ -282,7 +293,8 @@ app.post('/api/reports', (req, res) => {
     res.json({ success: true, data: reports });
 });
 
-// 获取所有日�?app.get('/api/reports/all', (req, res) => {
+// 获取所有日报
+app.get('/api/reports/all', (req, res) => {
     const { date, department, keyword } = req.query;
 
     let sql = `
@@ -422,18 +434,18 @@ app.delete('/api/employees/:id', (req, res) => {
 
 // ============ Socket.IO 实时通信 ============
 io.on('connection', (socket) => {
-    console.log('�?客户端连�?', socket.id);
+    console.log('✓ 客户端连接:', socket.id);
 
     socket.on('submit_report', (data) => {
         io.emit('report_updated', data);
     });
 
     socket.on('disconnect', () => {
-        console.log('�?客户端断开:', socket.id);
+        console.log('✗ 客户端断开:', socket.id);
     });
 });
 
-// ============ 启动服务�?============
+// ============ 启动服务器 ============
 const PORT = process.env.PORT || 3000;
 
 async function start() {
@@ -442,11 +454,11 @@ async function start() {
     server.listen(PORT, () => {
         console.log('');
         console.log('╔════════════════════════════════════════════════════════════╗');
-        console.log('�?       团队工作日报系统 - 服务器已启动                      �?);
+        console.log('║        团队工作日报系统 - 服务器已启动                      ║');
         console.log('╠════════════════════════════════════════════════════════════╣');
-        console.log(`�? 本地访问:  http://localhost:${PORT}                           ║`);
-        console.log('�? 员工日报:  http://localhost:3000/index.html                 �?);
-        console.log('�? 管理看板:  http://localhost:3000/admin.html                �?);
+        console.log(`║  本地访问:  http://localhost:${PORT}                           ║`);
+        console.log('║  员工日报:  http://localhost:3000/index.html                 ║');
+        console.log('║  管理看板:  http://localhost:3000/admin.html                ║');
         console.log('╚════════════════════════════════════════════════════════════╝');
         console.log('');
     });
