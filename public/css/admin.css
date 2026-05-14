@@ -1174,3 +1174,321 @@ body {
     color: var(--text-primary);
     line-height: 1.5;
 }
+
+/* ============ AI工作项归集详情弹窗 ============ */
+.modal-lg {
+    max-width: 900px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.cluster-detail-summary {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+}
+
+.detail-summary-item {
+    margin-bottom: 12px;
+}
+
+.detail-summary-item:last-child {
+    margin-bottom: 0;
+}
+
+.detail-summary-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.detail-summary-value {
+    font-size: 15px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.detail-summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.detail-summary-keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.keyword-tag {
+    padding: 4px 12px;
+    background: var(--primary);
+    color: white;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.overlap-badge {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.overlap-badge.high {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.overlap-badge.medium {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.overlap-badge.low {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.overlap-badge.unique {
+    background: #E5E7EB;
+    color: #374151;
+}
+
+/* 详情标签页 */
+.detail-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0;
+}
+
+.detail-tab {
+    padding: 10px 20px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: var(--transition);
+}
+
+.detail-tab:hover {
+    color: var(--primary);
+}
+
+.detail-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.detail-tab-content {
+    display: none;
+}
+
+.detail-tab-content.active {
+    display: block;
+}
+
+/* 人员明细卡片 */
+.detail-employee-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.detail-employee-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.detail-employee-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.detail-employee-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.detail-employee-dept {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+.detail-employee-count {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary);
+    background: #EEF2FF;
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+
+.detail-employee-dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.date-tag {
+    padding: 4px 10px;
+    background: #F3F4F6;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.detail-employee-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.detail-task-item {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid var(--primary);
+}
+
+.detail-task-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-right: 8px;
+}
+
+.detail-task-date {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-right: 8px;
+}
+
+.detail-task-status {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.detail-task-desc {
+    margin-top: 6px;
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+/* 时间线 */
+.timeline-container {
+    padding-left: 20px;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 24px;
+    padding-bottom: 20px;
+    border-left: 2px solid var(--border);
+}
+
+.timeline-item:last-child {
+    border-left-color: transparent;
+}
+
+.timeline-date {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.timeline-dot {
+    position: absolute;
+    left: -29px;
+    width: 12px;
+    height: 12px;
+    background: var(--primary);
+    border-radius: 50%;
+    border: 3px solid var(--card-bg);
+    box-shadow: 0 0 0 2px var(--primary);
+}
+
+.timeline-date-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.timeline-count {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--bg);
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+.timeline-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.timeline-task {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.timeline-emp {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    white-space: nowrap;
+    min-width: 70px;
+}
+
+.timeline-task-desc {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+/* 聚类卡片悬停效果 */
+.cluster-item {
+    transition: var(--transition);
+}
+
+.cluster-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}

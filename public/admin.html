@@ -230,6 +230,21 @@
         </div>
     </div>
 
+    <!-- AI工作项归集详情弹窗 -->
+    <div class="modal-overlay hidden" id="clusterDetailModal" onclick="closeClusterDetailOnOverlay(event)">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3>🔍 工作项归集详情</h3>
+                <button onclick="closeClusterDetail()" class="btn-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body" id="clusterDetailBody">
+                <!-- 动态内容 -->
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast"></div>
 
@@ -731,6 +746,7 @@
 
         // 渲染聚类结果
         function renderTaskClusters(clusters, totalTasks) {
+            currentClusters = clusters; // 保存到全局变量
             const container = document.getElementById('taskClustering');
             
             // 计算统计信息
@@ -769,7 +785,7 @@
                                     overlapLevel === 'low' ? 'overlap-low' : 'overlap-unique';
 
                 html += `
-                    <div class="cluster-item">
+                    <div class="cluster-item" onclick="showClusterDetail(${idx})" style="cursor: pointer;">
                         <div class="cluster-header">
                             <span class="cluster-title">${escapeHtml(truncate(cluster.representative.desc, 30))}</span>
                             <span class="cluster-count">${cluster.tasks.length}次</span>
@@ -780,7 +796,7 @@
                             <span class="cluster-keywords">${cluster.keywords.slice(0, 3).join(' ')}</span>
                         </div>
                         <div class="cluster-employees">
-                            ${Array.from(cluster.employees).slice(0, 4).map(emp => 
+                            ${Array.from(cluster.employees).slice(0, 4).map(emp =>
                                 `<span class="emp-tag">${emp}</span>`
                             ).join('')}
                             ${cluster.employees.size > 4 ? `<span class="emp-more">+${cluster.employees.size - 4}</span>` : ''}
@@ -794,6 +810,170 @@
 
             html += '</div>';
             container.innerHTML = html;
+        }
+
+        // 全局变量存储聚类数据
+        let currentClusters = [];
+
+        // 显示归集详情弹窗
+        function showClusterDetail(clusterIndex) {
+            const cluster = currentClusters[clusterIndex];
+            if (!cluster) return;
+
+            const modalBody = document.getElementById('clusterDetailBody');
+
+            // 按员工分组统计
+            const employeeTasks = {};
+            cluster.tasks.forEach(task => {
+                if (!employeeTasks[task.employee]) {
+                    employeeTasks[task.employee] = {
+                        department: task.department,
+                        tasks: [],
+                        dates: []
+                    };
+                }
+                employeeTasks[task.employee].tasks.push(task);
+                employeeTasks[task.employee].dates.push(task.date);
+            });
+
+            // 按日期分组统计
+            const dateTasks = {};
+            cluster.tasks.forEach(task => {
+                if (!dateTasks[task.date]) {
+                    dateTasks[task.date] = [];
+                }
+                dateTasks[task.date].push(task);
+            });
+
+            // 生成员工明细HTML
+            let employeeDetailsHtml = '';
+            Object.entries(employeeTasks).forEach(([empName, empData]) => {
+                const uniqueDates = [...new Set(empData.dates)].sort();
+                employeeDetailsHtml += `
+                    <div class="detail-employee-card">
+                        <div class="detail-employee-header">
+                            <div class="detail-employee-info">
+                                <span class="detail-employee-name">${empName}</span>
+                                <span class="detail-employee-dept">${empData.department}</span>
+                            </div>
+                            <span class="detail-employee-count">${empData.tasks.length} 次提及</span>
+                        </div>
+                        <div class="detail-employee-dates">
+                            ${uniqueDates.map(d => `<span class="date-tag">${d}</span>`).join('')}
+                        </div>
+                        <div class="detail-employee-tasks">
+                            ${empData.tasks.map((task, idx) => `
+                                <div class="detail-task-item">
+                                    <span class="detail-task-num">#${idx + 1}</span>
+                                    <span class="detail-task-date">${task.date}</span>
+                                    <span class="detail-task-status ${getStatusClass(task.status)}">${task.status || '未设置'}</span>
+                                    <div class="detail-task-desc">${escapeHtml(task.desc)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 生成日期时间线HTML
+            const sortedDates = Object.keys(dateTasks).sort();
+            let timelineHtml = '';
+            sortedDates.forEach(date => {
+                const dayTasks = dateTasks[date];
+                timelineHtml += `
+                    <div class="timeline-item">
+                        <div class="timeline-date">
+                            <span class="timeline-dot"></span>
+                            <span class="timeline-date-text">${date}</span>
+                            <span class="timeline-count">${dayTasks.length} 项</span>
+                        </div>
+                        <div class="timeline-tasks">
+                            ${dayTasks.map(task => `
+                                <div class="timeline-task">
+                                    <span class="timeline-emp">${task.employee}</span>
+                                    <span class="timeline-task-desc">${escapeHtml(truncate(task.desc, 40))}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 生成统计信息
+            const overlapLevel = cluster.tasks.length >= 4 ? 'high' :
+                                cluster.tasks.length >= 3 ? 'medium' :
+                                cluster.tasks.length >= 2 ? 'low' : 'unique';
+            const overlapText = overlapLevel === 'high' ? '高度重合' :
+                               overlapLevel === 'medium' ? '中度重合' :
+                               overlapLevel === 'low' ? '轻度重合' : '独立任务';
+
+            modalBody.innerHTML = `
+                <div class="cluster-detail-summary">
+                    <div class="detail-summary-item">
+                        <span class="detail-summary-label">归集主题</span>
+                        <span class="detail-summary-value">${escapeHtml(cluster.representative.desc)}</span>
+                    </div>
+                    <div class="detail-summary-row">
+                        <div class="detail-summary-item">
+                            <span class="detail-summary-label">涉及人员</span>
+                            <span class="detail-summary-value">${cluster.employees.size} 人</span>
+                        </div>
+                        <div class="detail-summary-item">
+                            <span class="detail-summary-label">涉及部门</span>
+                            <span class="detail-summary-value">${cluster.departments.size} 个</span>
+                        </div>
+                        <div class="detail-summary-item">
+                            <span class="detail-summary-label">出现次数</span>
+                            <span class="detail-summary-value">${cluster.tasks.length} 次</span>
+                        </div>
+                        <div class="detail-summary-item">
+                            <span class="detail-summary-label">重合度</span>
+                            <span class="detail-summary-value overlap-badge ${overlapLevel}">${overlapText}</span>
+                        </div>
+                    </div>
+                    <div class="detail-summary-item">
+                        <span class="detail-summary-label">关键词</span>
+                        <span class="detail-summary-keywords">${cluster.keywords.map(k => `<span class="keyword-tag">${k}</span>`).join('')}</span>
+                    </div>
+                </div>
+
+                <div class="detail-tabs">
+                    <button class="detail-tab active" onclick="switchDetailTab('employees', this)">👥 人员明细</button>
+                    <button class="detail-tab" onclick="switchDetailTab('timeline', this)">📅 日期时间线</button>
+                </div>
+
+                <div class="detail-tab-content active" id="employeesTab">
+                    ${employeeDetailsHtml}
+                </div>
+
+                <div class="detail-tab-content" id="timelineTab">
+                    <div class="timeline-container">
+                        ${timelineHtml}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('clusterDetailModal').classList.remove('hidden');
+        }
+
+        // 切换详情标签页
+        function switchDetailTab(tab, btn) {
+            document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.remove('active'));
+
+            btn.classList.add('active');
+            document.getElementById(tab + 'Tab').classList.add('active');
+        }
+
+        // 关闭归集详情弹窗
+        function closeClusterDetail() {
+            document.getElementById('clusterDetailModal').classList.add('hidden');
+        }
+
+        function closeClusterDetailOnOverlay(event) {
+            if (event.target === document.getElementById('clusterDetailModal')) {
+                closeClusterDetail();
+            }
         }
 
         function truncate(text, maxLen) {
