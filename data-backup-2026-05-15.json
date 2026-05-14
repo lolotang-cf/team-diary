@@ -1,0 +1,51 @@
+{
+  "backup_date": "2026-05-15T00:53:00+08:00",
+  "source": "Railway PostgreSQL - team-diary-production",
+  "description": "团队工作日报系统数据备份",
+  "employees": [
+    {"id": 1, "name": "房航宇", "department": "南昌人才发展主管", "created_at": "2026-05-12T18:22:50.159Z"},
+    {"id": 2, "name": "曹艳斌", "department": "太原人才发展主管", "created_at": "2026-05-12T18:22:50.164Z"},
+    {"id": 3, "name": "鹿翔宇", "department": "太原培训与人才发展主管", "created_at": "2026-05-12T18:22:50.170Z"},
+    {"id": 4, "name": "韩淼", "department": "太原培训专员", "created_at": "2026-05-12T18:22:50.176Z"},
+    {"id": 5, "name": "黄婷钠", "department": "太原培训专员", "created_at": "2026-05-12T18:22:50.180Z"},
+    {"id": 6, "name": "马晋燕", "department": "太原培训专员", "created_at": "2026-05-12T18:22:50.184Z"},
+    {"id": 7, "name": "麻万鑫", "department": "晋中培训专员", "created_at": "2026-05-12T18:22:50.188Z"},
+    {"id": 8, "name": "王彦卿", "department": "晋中培训专员", "created_at": "2026-05-12T18:22:50.194Z"},
+    {"id": 9, "name": "刘芬芬", "department": "长沙培训专员", "created_at": "2026-05-12T18:22:50.200Z"},
+    {"id": 10, "name": "徐紫移", "department": "长沙培训专员", "created_at": "2026-05-12T18:22:50.204Z"},
+    {"id": 11, "name": "汤志华", "department": "人才发展", "created_at": "2026-05-12T18:23:22.958Z"}
+  ],
+  "reports": [
+    {"id": 15, "employee_id": 1, "employee_name": "房航宇", "department": "南昌人才发展主管", "report_date": "2026-05-13", "task_category": "带教管理", "task_content": "1.标准化带教项目线上表单配置收集与校对✅ 2.带教师傅认证制度撰写输出✅ 3.带教师傅认证考试试题设计并安排线上化✅ 4.准备金牌面试官二阶段启动会材料（进行中） 5.梳理金牌面试官认证制度文件（进行中） 6.参与南昌分中心周度业务会议✅ 7.人才发展部门主管（南宁）候选人面试✅", "progress": 80, "completion_status": "部分完成", "difficulties": "暂无", "next_plan": "准备金牌面试官二阶段启动会材料、梳理一/二阶段项目负责人工作要求、梳理关键指标和周度复盘机制、准备标准带教启动会议"},
+    {"id": 16, "employee_id": 2, "employee_name": "曹艳斌", "department": "太原人才发展主管", "report_date": "2026-05-13", "task_category": "人才发展", "task_content": "1.司调延期业务办理培训课件制作✅ 2.经理级能力模型考核维度设置✅ 3.太原、晋中周例会✅ 4.客服工单/预警工单行动码培训报名跟进✅", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "人才盘点终版邮件下发、认证考试试题跟进、跨中心分享会总结邮件海报制作视频裁剪"},
+    {"id": 17, "employee_id": 11, "employee_name": "汤志华", "department": "人才发展", "report_date": "2026-05-13", "task_category": "测试", "task_content": "TEST111顶顶顶", "progress": 30, "completion_status": "部分完成", "difficulties": "TESET了111大大大", "next_plan": "TEST111大大大"},
+    {"id": 18, "employee_id": 8, "employee_name": "王彦卿", "department": "晋中培训专员", "report_date": "2026-05-13", "task_category": "培训实施", "task_content": "1.进阶训名单收集&经理核对&通知邮件✅ 2.4月绩效评分填写交付✅ 3.进阶训《录音讲解》PPT成果输出✅ 4.进阶训《话术分享》PPT成果输出✅ 5.第一节进阶训材料上传网盘✅ 6.山西新陪台账更新检查通知✅ 7.传发带教认证考试试题问卷星制作交付✅ 8.跨中心分享会问题收集问卷星修改交付✅", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "进阶训签到表打印&问卷星制作、进阶训组织实施、山西新陪台账更新检查、凌云课程组织实施、兼职讲师辅助实施、客服工单/预警工单行动码培训督促"},
+    {"id": 19, "employee_id": 4, "employee_name": "韩淼", "department": "太原培训专员", "report_date": "2026-05-13", "task_category": "培训管理", "task_content": "共13项：①高潜知识推送至90章 ②AI台账&兼职讲师台账检查 ③太原高潜五期结营汇报评分表回收确认 ④4月绩效评分卡制作交付 ⑤一星兼职讲师认证第二场评分表回收确认 ⑥5月第一批资产保全新培班级结训（应到2实到2，2通关入组） ⑦资产保全新培总结邮件输出 ⑧兼职讲师授课明细表更新 ⑨新培台账更新 ⑩保全AI剧本发布演练 ⑪AI陪练对练微文档更新 ⑫山西AI陪练对练微文档更新 ⑬电销部门5月第四批次新培开班管理（自营电销报道2人）", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "高潜知识推送、资产保全新培材料整理、月考试题制作、太原高潜结营汇报总结、一星讲师认证结果邮件、信息安全合规培训、电销5月第一批新培班级管理等"},
+    {"id": 20, "employee_id": 6, "employee_name": "马晋燕", "department": "太原培训专员", "report_date": "2026-05-13", "task_category": "培训实施", "task_content": "1.凌云管理知识推送至97篇章✅ 2.法调5月第一批次新培班级结训（应到3实到3，3通关3入组）✅ 3.凌云《绩效提升与辅导技巧》课前调研整理&讲师邀约&通知发布✅ 4.新培台账&讲师台账&师带徒台账更新✅ 5.法调AI话术组织新培员工对练（参与3，通过3）✅ 6.法调5月第二批次开班管理（报道2实培2）✅ 7.法调5月第一节进阶训材料整理上传网盘✅ 8.4月绩效评分卡填写交付✅ 9.客服工单/预警工单行动码培训太原法调参训名单整理交付✅", "progress": 100, "completion_status": "已完成", "difficulties": "无", "next_plan": "凌云知识推送至98篇章、法调第二批班级管理、凌云课程组织实施&录课&评估发布、法调第一批新培材料整理上传网盘"},
+    {"id": 21, "employee_id": 3, "employee_name": "鹿翔宇", "department": "太原培训与人才发展主管", "report_date": "2026-05-13", "task_category": "人才发展", "task_content": "1.王凯鑫见习期达标数据匹配提供✅ 2.例会材料制作调整参会及汇报✅ 3.金牌面试官-山西招聘侧量表填写跟进✅ 4.新生代培训山西场物料设计需求及议程拟定✅", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "晋中二星讲师认证组织实施跟进、太原高潜五期结营汇报结果邮件复核、Q2第二场讲师认证邮件复核、绩效评分卡核对汇总、新生代培训物料设计对接"},
+    {"id": 22, "employee_id": 7, "employee_name": "麻万鑫", "department": "晋中培训专员", "report_date": "2026-05-13", "task_category": "培训实施", "task_content": "1.优秀师徒奖品发放（部分完成-因员工休息推迟至14日） 2.二星兼职讲师资料交付评委✅ 3.4月绩效评分卡填写交付✅ 4.二星兼职讲师流程试讲✅ 5.进阶训《录音讲解》PPT输出✅ 6.进阶训《话术分享》PPT输出✅ 7.客服工单/预警工单行动码培训名单回收对接✅ 8.填写客服工单预警工单行动码培训收件人&抄送人✅", "progress": 90, "completion_status": "部分完成", "difficulties": "因员工休息无法完成奖品发放", "next_plan": "二星兼职讲师认证组织实施&现场布置、凌云课程组织实施、优秀师徒海报制作&群内通知、师徒带教资料回收"},
+    {"id": 23, "employee_id": 5, "employee_name": "黄婷钠", "department": "太原培训专员", "report_date": "2026-05-13", "task_category": "培训管理", "task_content": "1.自营电销5月第一节进阶训参训名单收集&通知邮件✅ 2.电销5月第三批次班级管理（应到3实到3）通关入组对接✅ 3.5月第四批次新培班级管理（电销2人客服1人）✅ 4.新培台账更新✅ 5.兼职讲师台账更新✅ 6.新培奖品领取台账更新✅ 7.新培总结邮件输出✅ 8.4月绩效评分卡填写交付✅ 9.《信息安全合规》授课✅ 10.二季度信息安全培训邮件收件人&抄送人填写核实✅ 11.客服工单/预警工单行动码培训名单收集✅", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "电销5月第一批次进阶训组织实施、季度信息安全合规学习、电销第三批次材料汇总整理、月考试题问卷星制作测试"},
+    {"id": 24, "employee_id": 2, "employee_name": "曹艳斌", "department": "太原人才发展主管", "report_date": "2026-05-14", "task_category": "人才发展", "task_content": "1.盘带你问卷优化修改、线上链接制作（9份）✅ 2.参与山西/长沙新人带教专项会议✅ 3.客服工单/预警工单行动码培训跟进✅", "progress": 100, "completion_status": "已完成", "difficulties": "无", "next_plan": "盘点邮件报送，跨中心分享会总结邮件报送"},
+    {"id": 25, "employee_id": 11, "employee_name": "汤志华", "department": "人才发展", "report_date": "2026-05-14", "task_category": "测试", "task_content": "test", "progress": 0, "completion_status": "已延期", "difficulties": "test", "next_plan": "test"},
+    {"id": 26, "employee_id": 8, "employee_name": "王彦卿", "department": "晋中培训专员", "report_date": "2026-05-14", "task_category": "培训实施", "task_content": "1.进阶训签到表打印&问卷星制作✅ 2.进阶训组织实施&拍照✅ 3.山西新陪台账更新检查✅ 4.凌云课程组织实施✅ 5.兼职讲师辅助实施✅ 6.客服工单/预警工单行动码培训督促入会✅ 7.人才盘点收集表制作✅ 8.人才盘点经理级收集表调整✅", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "进阶训总结邮件输出、月考试卷测试、进阶训第二节网盘备份、山西新陪台账更新检查"},
+    {"id": 27, "employee_id": 4, "employee_name": "韩淼", "department": "太原培训专员", "report_date": "2026-05-14", "task_category": "培训管理", "task_content": "共12项：①高潜管理知识推送至92章 ②资产保全5月第一批新培材料整理 ③月考试题制作 ④太原高潜结营汇报评委点评整理 ⑤太原一星讲师认证第二场评委点评整理 ⑥相关材料汇总整理归档 ⑦季度信息安全合规培训整理带教 ⑧电销5月第一批新培班级管理（应到2实到1，1人延期）⑨新培台账更新 ⑩兼职讲师台账更新 ⑪电销新培日报输出 ⑫法调AI陪练台账创建", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "高潜知识推送、AI台账检查、人力周报、高潜材料整理、兼职讲师材料整理、高潜结营结果公示、电销第四批次班级结训等"},
+    {"id": 28, "employee_id": 6, "employee_name": "马晋燕", "department": "太原培训专员", "report_date": "2026-05-14", "task_category": "培训实施", "task_content": "1.凌云管理知识推送至98篇章✅ 2.法调5月第二批新培班级管理（应到2实到2）✅ 3.凌云《绩效提升与辅导技巧》签到表制作对接&组织实施&录课✅ 4.法调5月第一批新培材料整理上传网盘✅ 5.新培台账&讲师台账更新✅ 6.凌云新增课程《新生代员工管理》课件存档✅ 7.客服工单/预警工单行动码培训项目对接✅", "progress": 100, "completion_status": "已完成", "difficulties": "无", "next_plan": "凌云知识推送至99篇章、课程评估整理&总结邮件、法调第二批结训、法调周五批次班级管理、法调5月第二节进阶训名单收集"},
+    {"id": 29, "employee_id": 3, "employee_name": "鹿翔宇", "department": "太原培训与人才发展主管", "report_date": "2026-05-14", "task_category": "人才发展", "task_content": "1.凌云《绩效提升与辅导技巧》课程组织跟进✅ 2.晋中二星讲师认证组织实施跟进✅ 3.4月绩效评分卡数据核对汇总提交✅ 4.新生代培训山西场物料设计需求对接企宣✅ 5.太原高潜五期结营汇报结果邮件复核✅", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "5月上半月班表邮件输出、AI陪练情况跟进、标准带教培训内部沟通会、晋中二星讲师认证结果公示、新生代培训课前调研回收"},
+    {"id": 30, "employee_id": 7, "employee_name": "麻万鑫", "department": "晋中培训专员", "report_date": "2026-05-14", "task_category": "培训实施", "task_content": "1.二星兼职讲师认证组织实施&现场布置✅ 2.凌云课程签到表打印&组织实施✅ 3.优秀师徒奖品发放&海报制作✅ 4.客服工单/预警工单行动码培训拉群✅ 5.月考试题制作✅ 6.回收师徒带教资料✅ 7.晋中客服工单/预警工单行动码培训缺席情况核实反馈✅", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "回收讲师认证成绩、月考试题检查导入问卷星、对接汇总太原缺席客服工单/预警工单行动码培训情况"},
+    {"id": 31, "employee_id": 5, "employee_name": "黄婷钠", "department": "太原培训专员", "report_date": "2026-05-14", "task_category": "培训管理", "task_content": "1.电销5月第一批次进阶训组织实施✅ 2.季度信息安全合规相关流程及事项学习✅ 3.电销5月第三批次材料汇总整理上传网盘✅ 4.电销5月月考试题问卷星制作测试✅ 5.优秀师徒对接项目评选（电销、资产保全均放弃）✅ 6.凌云《绩效提升与辅导技巧》辅助实施✅ 7.二星兼职讲师认证纸质材料对接打印✅ 8.客服工单/预警工单行动码培训督促入会✅ 9.人才盘点电销主管盘点问卷调研制作交付✅", "progress": 100, "completion_status": "已完成", "difficulties": "暂无", "next_plan": "明天有紧急私事需处理，已申请年假1天，手头工作已全部交接妥当"}
+  ],
+  "statistics": {
+    "total_employees": 11,
+    "total_reports": 16,
+    "date_range": "2026-05-13 至 2026-05-14",
+    "departments": {
+      "南昌人才发展主管": 1,
+      "太原人才发展主管": 1,
+      "太原培训与人才发展主管": 1,
+      "太原培训专员": 3,
+      "晋中培训专员": 2,
+      "长沙培训专员": 2,
+      "人才发展": 1
+    }
+  }
+}
