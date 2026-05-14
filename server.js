@@ -391,8 +391,8 @@ app.get('/api/stats', async (req, res) => {
             }
         });
     } catch (err) {
-        console.error(err);
-        res.json({ success: false, message: '统计失败' });
+        console.error('Stats API error:', err);
+        res.json({ success: false, message: '统计失败: ' + err.message, error: err.message });
     }
 });
 
