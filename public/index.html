@@ -25,12 +25,6 @@
                 <div class="employee-grid" id="employeeList"></div>
                 <div class="custom-employee">
                     <input type="text" id="customName" placeholder="或输入姓名（首次使用）">
-                    <select id="customDept">
-                        <option value="小赢前端催收">小赢前端催收</option>
-                        <option value="小赢后端催收">小赢后端催收</option>
-                        <option value="BPO催收">BPO催收</option>
-                        <option value="其他">其他</option>
-                    </select>
                     <button onclick="addCustomEmployee()" class="btn btn-secondary">添加并进入</button>
                 </div>
             </section>
@@ -39,10 +33,6 @@
             <section class="section diary-form hidden" id="diaryFormSection">
                 <div class="form-header">
                     <h2>📋 填写工作日报</h2>
-                    <div class="form-actions">
-                        <button onclick="loadHistory()" class="btn btn-secondary">📅 历史记录</button>
-                        <button onclick="switchEmployee()" class="btn btn-outline">🔄 切换员工</button>
-                    </div>
                 </div>
 
                 <form id="reportForm" class="report-form">
@@ -54,39 +44,19 @@
                         </div>
                     </div>
 
-                    <!-- 主要内容 -->
+                    <!-- 工作任务列表 -->
                     <div class="form-group full-width">
-                        <label>📌 今日任务内容 <span class="required">*</span></label>
-                        <textarea id="taskContent" rows="4" placeholder="详细描述今日完成的工作任务..." required></textarea>
-                    </div>
-
-                    <!-- 进度 -->
-                    <div class="form-group full-width">
-                        <label>📊 完成进度 <span id="progressValue">0%</span></label>
-                        <input type="range" id="progress" min="0" max="100" value="0" oninput="updateProgress()">
-                        <div class="progress-labels">
-                            <span>未开始</span>
-                            <span>进行中</span>
-                            <span>已完成</span>
+                        <label>📌 工作任务 <span class="required">*</span></label>
+                        <div id="tasksContainer">
+                            <!-- 动态添加的任务项 -->
                         </div>
+                        <button type="button" onclick="addTask()" class="btn btn-secondary btn-small">+ 添加任务</button>
                     </div>
 
-                    <!-- 完成状态 -->
+                    <!-- 达成情况 -->
                     <div class="form-group">
-                        <label>✅ 完成情况</label>
-                        <select id="completionStatus">
-                            <option value="">请选择</option>
-                            <option value="已完成">✅ 已完成</option>
-                            <option value="部分完成">🔄 部分完成</option>
-                            <option value="未完成">⏳ 未完成</option>
-                            <option value="进行中">🔃 进行中</option>
-                            <option value="已延期">⚠️ 已延期</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>🏆 达成情况</label>
-                        <select id="achievement">
+                        <label>🏆 达成情况 <span class="required">*</span></label>
+                        <select id="achievement" required>
                             <option value="">请选择</option>
                             <option value="超出预期">🌟 超出预期</option>
                             <option value="达成目标">🎯 达成目标</option>
@@ -97,19 +67,13 @@
 
                     <!-- 困难和建议 -->
                     <div class="form-group full-width">
-                        <label>🚧 遇到困难</label>
-                        <textarea id="difficulties" rows="3" placeholder="描述工作中遇到的问题或阻碍..."></textarea>
+                        <label>🚧 遇到困难 <span class="required">*</span></label>
+                        <textarea id="difficulties" rows="3" placeholder="描述工作中遇到的问题或阻碍..." required></textarea>
                     </div>
 
                     <div class="form-group full-width">
-                        <label>💡 明日计划</label>
-                        <textarea id="nextPlan" rows="3" placeholder="描述明日工作计划..."></textarea>
-                    </div>
-
-                    <!-- 跟进结果 -->
-                    <div class="form-group full-width">
-                        <label>📞 跟进结果</label>
-                        <textarea id="followResult" rows="2" placeholder="记录与客户的跟进结果..."></textarea>
+                        <label>💡 明日计划 <span class="required">*</span></label>
+                        <textarea id="nextPlan" rows="3" placeholder="描述明日工作计划..." required></textarea>
                     </div>
 
                     <!-- 备注 -->
@@ -123,15 +87,6 @@
                     </div>
                 </form>
             </section>
-
-            <!-- 历史记录 -->
-            <section class="section history-section hidden" id="historySection">
-                <div class="form-header">
-                    <h2>📅 历史日报</h2>
-                    <button onclick="closeHistory()" class="btn btn-secondary">← 返回</button>
-                </div>
-                <div id="historyList" class="history-list"></div>
-            </section>
         </main>
     </div>
 
@@ -144,6 +99,7 @@
         let currentEmployee = null;
         let socket = null;
         let employees = [];
+        let taskCounter = 0;
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
@@ -151,6 +107,7 @@
             loadEmployees();
             setDefaultDate();
             initForm();
+            addTask(); // 默认添加一个任务项
         });
 
         // 初始化 Socket.IO
@@ -207,7 +164,6 @@
         // 添加自定义员工
         async function addCustomEmployee() {
             const name = document.getElementById('customName').value.trim();
-            const dept = document.getElementById('customDept').value;
 
             if (!name) {
                 showToast('请输入姓名', 'error');
@@ -218,7 +174,7 @@
                 const res = await fetch('/api/employees', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, department: dept })
+                    body: JSON.stringify({ name, department: '催收部' })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -244,10 +200,45 @@
             document.getElementById('reportForm').addEventListener('submit', submitReport);
         }
 
-        // 更新进度显示
-        function updateProgress() {
-            const value = document.getElementById('progress').value;
-            document.getElementById('progressValue').textContent = value + '%';
+        // 添加任务
+        function addTask() {
+            taskCounter++;
+            const container = document.getElementById('tasksContainer');
+            const taskDiv = document.createElement('div');
+            taskDiv.className = 'task-item';
+            taskDiv.id = `task-${taskCounter}`;
+            taskDiv.innerHTML = `
+                <div class="task-header">
+                    <span class="task-number">任务 ${taskCounter}</span>
+                    <button type="button" onclick="removeTask(${taskCounter})" class="btn-remove">✕ 删除</button>
+                </div>
+                <div class="task-content">
+                    <textarea id="taskDesc-${taskCounter}" rows="2" placeholder="描述工作任务内容..." required class="task-desc"></textarea>
+                </div>
+                <div class="task-status">
+                    <label>完成情况 <span class="required">*</span></label>
+                    <select id="taskStatus-${taskCounter}" required class="task-status-select">
+                        <option value="">请选择</option>
+                        <option value="已完成">✅ 已完成</option>
+                        <option value="部分完成">🔄 部分完成</option>
+                        <option value="未完成">⏳ 未完成</option>
+                        <option value="进行中">🔃 进行中</option>
+                        <option value="已延期">⚠️ 已延期</option>
+                    </select>
+                </div>
+            `;
+            container.appendChild(taskDiv);
+        }
+
+        // 删除任务
+        function removeTask(taskId) {
+            const taskDiv = document.getElementById(`task-${taskId}`);
+            const container = document.getElementById('tasksContainer');
+            if (container.children.length > 1) {
+                taskDiv.remove();
+            } else {
+                showToast('至少保留一个任务', 'error');
+            }
         }
 
         // 加载今日日报
@@ -270,14 +261,34 @@
         // 填充表单
         function fillForm(report) {
             document.getElementById('reportDate').value = report.report_date;
-            document.getElementById('taskContent').value = report.task_content || '';
-            document.getElementById('progress').value = report.progress || 0;
-            document.getElementById('progressValue').textContent = (report.progress || 0) + '%';
-            document.getElementById('completionStatus').value = report.completion_status || '';
+            
+            // 清空现有任务
+            const container = document.getElementById('tasksContainer');
+            container.innerHTML = '';
+            taskCounter = 0;
+            
+            // 解析任务数据（假设后端返回的是JSON字符串）
+            let tasks = [];
+            try {
+                tasks = JSON.parse(report.tasks || '[]');
+            } catch (e) {
+                tasks = [];
+            }
+            
+            if (tasks.length === 0) {
+                addTask();
+            } else {
+                tasks.forEach(task => {
+                    addTask();
+                    const currentTask = taskCounter;
+                    document.getElementById(`taskDesc-${currentTask}`).value = task.desc || '';
+                    document.getElementById(`taskStatus-${currentTask}`).value = task.status || '';
+                });
+            }
+            
             document.getElementById('achievement').value = report.achievement || '';
             document.getElementById('difficulties').value = report.difficulties || '';
             document.getElementById('nextPlan').value = report.next_plan || '';
-            document.getElementById('followResult').value = report.follow_result || '';
             document.getElementById('notes').value = report.notes || '';
         }
 
@@ -290,16 +301,29 @@
                 return;
             }
 
+            // 收集所有任务
+            const tasks = [];
+            const taskItems = document.querySelectorAll('.task-item');
+            taskItems.forEach(item => {
+                const desc = item.querySelector('.task-desc').value.trim();
+                const status = item.querySelector('.task-status-select').value;
+                if (desc || status) {
+                    tasks.push({ desc, status });
+                }
+            });
+
+            if (tasks.length === 0) {
+                showToast('请至少添加一个工作任务', 'error');
+                return;
+            }
+
             const formData = {
                 employee_id: currentEmployee.id,
                 report_date: document.getElementById('reportDate').value,
-                task_content: document.getElementById('taskContent').value,
-                progress: parseInt(document.getElementById('progress').value),
-                completion_status: document.getElementById('completionStatus').value,
+                tasks: JSON.stringify(tasks),
                 achievement: document.getElementById('achievement').value,
                 difficulties: document.getElementById('difficulties').value,
                 next_plan: document.getElementById('nextPlan').value,
-                follow_result: document.getElementById('followResult').value,
                 notes: document.getElementById('notes').value
             };
 
@@ -319,71 +343,6 @@
             } catch (err) {
                 showToast('提交失败', 'error');
             }
-        }
-
-        // 加载历史记录
-        async function loadHistory() {
-            if (!currentEmployee) return;
-
-            document.getElementById('diaryFormSection').classList.add('hidden');
-            document.getElementById('historySection').classList.remove('hidden');
-
-            try {
-                const res = await fetch(`/api/reports/employee/${currentEmployee.id}`);
-                const data = await res.json();
-                if (data.success) {
-                    renderHistory(data.data);
-                }
-            } catch (err) {
-                showToast('加载历史失败', 'error');
-            }
-        }
-
-        // 渲染历史记录
-        function renderHistory(reports) {
-            const container = document.getElementById('historyList');
-            if (reports.length === 0) {
-                container.innerHTML = '<div class="empty-state">暂无历史记录</div>';
-                return;
-            }
-
-            container.innerHTML = reports.map(r => `
-                <div class="history-item">
-                    <div class="history-header">
-                        <span class="history-date">📅 ${r.report_date}</span>
-                        <span class="history-progress ${getProgressClass(r.progress)}">${r.progress || 0}%</span>
-                    </div>
-                    <div class="history-content">${r.task_content || '无内容'}</div>
-                    ${r.difficulties ? `<div class="history-difficulty">🚧 ${r.difficulties}</div>` : ''}
-                    ${r.next_plan ? `<div class="history-plan">💡 明日计划：${r.next_plan}</div>` : ''}
-                    <div class="history-meta">
-                        <span>${r.completion_status || ''}</span>
-                        <span>${r.achievement || ''}</span>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // 获取进度样式
-        function getProgressClass(progress) {
-            if (progress >= 100) return 'progress-complete';
-            if (progress >= 50) return 'progress-mid';
-            return 'progress-low';
-        }
-
-        // 关闭历史
-        function closeHistory() {
-            document.getElementById('historySection').classList.add('hidden');
-            document.getElementById('diaryFormSection').classList.remove('hidden');
-        }
-
-        // 切换员工
-        function switchEmployee() {
-            currentEmployee = null;
-            document.getElementById('diaryFormSection').classList.add('hidden');
-            document.getElementById('employeeSelectSection').classList.remove('hidden');
-            document.getElementById('reportForm').reset();
-            setDefaultDate();
         }
 
         // Toast 提示

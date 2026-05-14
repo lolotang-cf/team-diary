@@ -579,6 +579,195 @@ body {
     color: var(--text-primary);
 }
 
+.chart-card-wide {
+    grid-column: 1 / -1;
+}
+
+.chart-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: -16px;
+    margin-bottom: 20px;
+}
+
+/* ============ AI工作项归集样式 ============ */
+.task-clustering {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.loading-text {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.cluster-summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.cluster-stat {
+    background: var(--bg);
+    padding: 16px 24px;
+    border-radius: 12px;
+    text-align: center;
+    flex: 1;
+}
+
+.cluster-stat.highlight {
+    background: linear-gradient(135deg, #FEE2E2, #FEF3C7);
+    border: 2px solid #F59E0B;
+}
+
+.cluster-stat-num {
+    display: block;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.cluster-stat-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.cluster-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.cluster-item {
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 14px;
+    border: 2px solid transparent;
+    transition: var(--transition);
+}
+
+.cluster-item:hover {
+    border-color: var(--primary-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.cluster-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.cluster-title {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+    min-width: 0;
+}
+
+.cluster-count {
+    background: var(--primary);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cluster-overlap {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.overlap-high {
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+.overlap-medium {
+    background: #FEF3C7;
+    color: #D97706;
+}
+
+.overlap-low {
+    background: #DBEAFE;
+    color: #2563EB;
+}
+
+.overlap-unique {
+    background: #D1FAE5;
+    color: #059669;
+}
+
+.cluster-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cluster-keywords {
+    font-size: 10px;
+    color: var(--primary);
+    background: #EEF2FF;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.cluster-employees {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.emp-tag {
+    background: white;
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    border: 1px solid var(--border);
+}
+
+.emp-more {
+    color: var(--text-secondary);
+    font-size: 10px;
+    padding: 2px 4px;
+}
+
+.cluster-suggestion {
+    margin-top: 6px;
+}
+
+.suggestion-tag {
+    background: linear-gradient(135deg, #FEE2E2, #FEF3C7);
+    color: #DC2626;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    display: inline-block;
+}
+
 /* ============ 员工网格 ============ */
 .employee-grid {
     display: grid;
@@ -933,4 +1122,55 @@ body {
     .detail-grid {
         grid-template-columns: 1fr;
     }
+}
+
+/* ============ 任务相关样式 ============ */
+.task-count {
+    padding: 4px 10px;
+    background: #EEF2FF;
+    color: #6366F1;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.task-detail-item {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border-left: 4px solid var(--primary);
+}
+
+.task-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.task-detail-num {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.task-detail-status {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.task-detail-status.status-green { background: #D1FAE5; color: #065F46; }
+.task-detail-status.status-yellow { background: #FEF3C7; color: #92400E; }
+.task-detail-status.status-red { background: #FEE2E2; color: #991B1B; }
+.task-detail-status.status-gray { background: var(--bg); color: var(--text-secondary); }
+
+.task-detail-desc {
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
 }

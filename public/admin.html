@@ -85,6 +85,7 @@
                     <option value="太原培训与人才发展主管">太原培训与人才发展主管</option>
                     <option value="太原培训专员">太原培训专员</option>
                     <option value="晋中培训专员">晋中培训专员</option>
+                    <option value="长沙培训专员">长沙培训专员</option>
                 </select>
             </div>
             <div class="filter-item filter-search">
@@ -127,9 +128,8 @@
                                 <th>员工</th>
                                 <th>部门</th>
                                 <th>日期</th>
-                                <th>任务内容</th>
-                                <th>进度</th>
-                                <th>状态</th>
+                                <th>任务数</th>
+                                <th>任务摘要</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -150,9 +150,12 @@
                     <h3>📈 每日提交趋势</h3>
                     <canvas id="trendChart"></canvas>
                 </div>
-                <div class="card chart-card">
-                    <h3>✅ 完成情况</h3>
-                    <canvas id="completionChart"></canvas>
+                <div class="card chart-card chart-card-wide">
+                    <h3>🧠 AI工作项归集</h3>
+                    <p class="chart-desc">智能归集类似工作项，发现可合并的高重合任务</p>
+                    <div id="taskClustering" class="task-clustering">
+                        <div class="loading-text">正在分析工作项...</div>
+                    </div>
                 </div>
                 <div class="card chart-card">
                     <h3>🎯 达成情况</h3>
@@ -217,6 +220,7 @@
                         <option value="太原培训与人才发展主管">太原培训与人才发展主管</option>
                         <option value="太原培训专员">太原培训专员</option>
                         <option value="晋中培训专员">晋中培训专员</option>
+                        <option value="长沙培训专员">长沙培训专员</option>
                     </select>
                 </div>
             </div>
@@ -245,6 +249,7 @@
             loadReports();
             loadEmployees();
             startClock();
+            clusterTasks(); // 启动AI归集分析
         });
 
         // Socket.IO
@@ -336,7 +341,17 @@
                 return;
             }
 
-            tbody.innerHTML = reports.map(r => `
+            tbody.innerHTML = reports.map(r => {
+                let tasks = [];
+                try {
+                    tasks = JSON.parse(r.tasks || '[]');
+                } catch (e) {
+                    tasks = [];
+                }
+                const taskCount = tasks.length;
+                const taskSummary = tasks.slice(0, 2).map(t => t.desc).join('; ');
+                
+                return `
                 <tr onclick="showReportDetail(${r.id})">
                     <td>
                         <div class="user-cell">
@@ -346,17 +361,12 @@
                     </td>
                     <td><span class="dept-badge">${r.department}</span></td>
                     <td><span class="date-text">${r.report_date}</span></td>
-                    <td class="task-cell">${r.task_content ? r.task_content.substring(0, 40) + (r.task_content.length > 40 ? '...' : '') : '-'}</td>
-                    <td>
-                        <div class="progress-mini">
-                            <div class="progress-mini-fill ${getProgressClass(r.progress)}" style="width: ${r.progress || 0}%"></div>
-                        </div>
-                        <span class="progress-text">${r.progress || 0}%</span>
-                    </td>
-                    <td><span class="status-badge ${getStatusClass(r.completion_status)}">${r.completion_status || '-'}</span></td>
+                    <td><span class="task-count">${taskCount} 项</span></td>
+                    <td class="task-cell">${taskSummary ? taskSummary.substring(0, 50) + (taskSummary.length > 50 ? '...' : '') : '-'}</td>
                     <td><button onclick="event.stopPropagation(); showReportDetail(${r.id})" class="btn btn-sm btn-outline">查看</button></td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function getProgressClass(p) {
@@ -381,6 +391,28 @@
 
             if (!report) return;
 
+            let tasksHtml = '';
+            try {
+                const tasks = JSON.parse(report.tasks || '[]');
+                if (tasks.length > 0) {
+                    tasksHtml = '<div class="detail-block"><span class="detail-label">📌 工作任务</span>';
+                    tasks.forEach((task, index) => {
+                        tasksHtml += `
+                            <div class="task-detail-item">
+                                <div class="task-detail-header">
+                                    <span class="task-detail-num">任务 ${index + 1}</span>
+                                    <span class="task-detail-status ${getStatusClass(task.status)}">${task.status || '未设置'}</span>
+                                </div>
+                                <div class="task-detail-desc">${task.desc || '无描述'}</div>
+                            </div>
+                        `;
+                    });
+                    tasksHtml += '</div>';
+                }
+            } catch (e) {
+                tasksHtml = '';
+            }
+
             document.getElementById('modalBody').innerHTML = `
                 <div class="detail-grid">
                     <div class="detail-item">
@@ -395,20 +427,11 @@
                         <span class="detail-label">日期</span>
                         <span class="detail-value">${report.report_date}</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="detail-label">进度</span>
-                        <span class="detail-value">${report.progress || 0}%</span>
-                    </div>
                 </div>
-                <div class="detail-block">
-                    <span class="detail-label">📌 任务内容</span>
-                    <div class="detail-content">${report.task_content || '无'}</div>
-                </div>
-                ${report.completion_status ? `<div class="detail-block"><span class="detail-label">✅ 完成情况</span><div class="detail-content">${report.completion_status}</div></div>` : ''}
+                ${tasksHtml}
                 ${report.achievement ? `<div class="detail-block"><span class="detail-label">🏆 达成情况</span><div class="detail-content">${report.achievement}</div></div>` : ''}
                 ${report.difficulties ? `<div class="detail-block"><span class="detail-label">🚧 遇到困难</span><div class="detail-content has-issue">${report.difficulties}</div></div>` : ''}
                 ${report.next_plan ? `<div class="detail-block"><span class="detail-label">💡 明日计划</span><div class="detail-content">${report.next_plan}</div></div>` : ''}
-                ${report.follow_result ? `<div class="detail-block"><span class="detail-label">📞 跟进结果</span><div class="detail-content">${report.follow_result}</div></div>` : ''}
                 ${report.notes ? `<div class="detail-block"><span class="detail-label">📝 备注</span><div class="detail-content">${report.notes}</div></div>` : ''}
             `;
 
@@ -490,7 +513,6 @@
         function updateCharts(stats) {
             updateDeptChart(stats.deptStats);
             updateTrendChart(stats.dailyTrend);
-            updateCompletionChart(stats.completionStats);
             updateAchievementChart(stats.achievementStats || []);
         }
 
@@ -552,26 +574,240 @@
         }
 
         function updateCompletionChart(data) {
-            const ctx = document.getElementById('completionChart').getContext('2d');
-            if (charts.completion) charts.completion.destroy();
-
-            charts.completion = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: data.map(d => d.completion_status),
-                    datasets: [{
-                        data: data.map(d => d.count),
-                        backgroundColor: ['#10B981', '#F59E0B', '#6366F1', '#EF4444', '#8B5CF6'],
-                        borderWidth: 0,
-                        hoverOffset: 8
-                    }]
-                },
-                options: { 
-                    responsive: true,
-                    plugins: { legend: { position: 'bottom' } }
-                }
-            });
+            // 已移除，由AI归集功能替代
         }
+
+        // ==================== AI工作项归集功能 ====================
+        
+        // 中文分词简单实现
+        function tokenizeChinese(text) {
+            // 移除标点符号
+            text = text.replace(/[，。！？、；：""''【】《》（）\u4e00-\u9fa5]/g, ' ');
+            // 简单的中文分词：按2-4字词滑动窗口提取
+            const words = [];
+            for (let i = 0; i < text.length - 1; i++) {
+                // 提取2-4字的词组
+                for (let len = 2; len <= 4 && i + len <= text.length; len++) {
+                    const word = text.substring(i, i + len);
+                    // 过滤常见无意义词
+                    if (!isStopWord(word)) {
+                        words.push(word);
+                    }
+                }
+            }
+            return words;
+        }
+
+        // 停用词列表
+        const stopWords = new Set([
+            '的', '了', '是', '在', '和', '与', '及', '等', '将', '已', '进行', '完成', '开展', '处理',
+            '一个', '进行', '工作', '任务', '事项', '相关', '负责', '对接', '参与', '协助', '配合',
+            '情况', '内容', '包括', '以及', '或者', '同时', '并且', '并且', '继续', '跟进', '做好',
+            '部分', '相关', '主要', '通过', '根据', '按照', '由于', '关于', '对于', '为了',
+            '今日', '今天', '本周', '本月', '目前', '现在', '当前', '本周', '本月', '当月',
+            '完成', '进行中', '部分', '完成', '推进', '跟进', '整理', '梳理', '优化', '完善',
+            '数据', '信息', '资料', '文档', '报告', '方案', '计划', '总结', '汇总', '统计',
+            '人员', '员工', '同事', '领导', '部门', '公司', '集团', '领导', '经理', '主管',
+            '确认', '核实', '检查', '审核', '审批', '通过', '同意', '协调', '沟通', '交流',
+            '其他', '其它', '各类', '各种', '多个', '若干', '一定', '一些', '部分'
+        ]);
+
+        function isStopWord(word) {
+            // 过滤单字、太长的词、以及停用词
+            if (word.length < 2) return true;
+            if (word.length > 6) return true;
+            return stopWords.has(word);
+        }
+
+        // 计算两个文本的相似度（基于词重叠）
+        function calculateSimilarity(text1, text2) {
+            const words1 = new Set(tokenizeChinese(text1));
+            const words2 = new Set(tokenizeChinese(text2));
+            
+            if (words1.size === 0 || words2.size === 0) return 0;
+            
+            // Jaccard相似度
+            const intersection = new Set([...words1].filter(x => words2.has(x)));
+            const union = new Set([...words1, ...words2]);
+            
+            return intersection.size / union.size;
+        }
+
+        // 从日报中提取工作项并聚类
+        async function clusterTasks() {
+            try {
+                // 获取所有日报
+                const res = await fetch('/api/reports/all');
+                const data = await res.json();
+                
+                if (!data.success || data.data.length === 0) {
+                    document.getElementById('taskClustering').innerHTML = 
+                        '<div class="empty-state">暂无数据可供分析</div>';
+                    return;
+                }
+
+                // 提取所有工作项
+                let allTasks = [];
+                data.data.forEach(report => {
+                    try {
+                        const tasks = JSON.parse(report.tasks || '[]');
+                        tasks.forEach(task => {
+                            if (task.desc && task.desc.trim()) {
+                                allTasks.push({
+                                    desc: task.desc.trim(),
+                                    employee: report.employee_name,
+                                    department: report.department,
+                                    date: report.report_date,
+                                    status: task.status || '未设置'
+                                });
+                            }
+                        });
+                    } catch (e) {}
+                });
+
+                if (allTasks.length === 0) {
+                    document.getElementById('taskClustering').innerHTML = 
+                        '<div class="empty-state">暂无工作项数据</div>';
+                    return;
+                }
+
+                // 基于相似度聚类
+                const clusters = [];
+                const used = new Set();
+
+                allTasks.forEach((task, idx) => {
+                    if (used.has(idx)) return;
+                    
+                    const cluster = {
+                        representative: task,
+                        tasks: [task],
+                        employees: new Set([task.employee]),
+                        departments: new Set([task.department]),
+                        keywords: extractKeywords(task.desc)
+                    };
+                    used.add(idx);
+
+                    // 查找相似任务
+                    allTasks.forEach((other, otherIdx) => {
+                        if (used.has(otherIdx)) return;
+                        
+                        const similarity = calculateSimilarity(task.desc, other.desc);
+                        if (similarity >= 0.3) { // 相似度阈值
+                            cluster.tasks.push(other);
+                            cluster.employees.add(other.employee);
+                            cluster.departments.add(other.department);
+                            used.add(otherIdx);
+                        }
+                    });
+
+                    clusters.push(cluster);
+                });
+
+                // 按任务数量排序，取前12个聚类
+                clusters.sort((a, b) => b.tasks.length - a.tasks.length);
+                const topClusters = clusters.slice(0, 12);
+
+                // 渲染归集结果
+                renderTaskClusters(topClusters, allTasks.length);
+
+            } catch (err) {
+                console.error('聚类分析失败:', err);
+                document.getElementById('taskClustering').innerHTML = 
+                    '<div class="empty-state">分析失败，请重试</div>';
+            }
+        }
+
+        // 提取关键词
+        function extractKeywords(text) {
+            const words = tokenizeChinese(text);
+            const freq = {};
+            words.forEach(w => freq[w] = (freq[w] || 0) + 1);
+            
+            return Object.entries(freq)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(e => e[0]);
+        }
+
+        // 渲染聚类结果
+        function renderTaskClusters(clusters, totalTasks) {
+            const container = document.getElementById('taskClustering');
+            
+            // 计算统计信息
+            const highOverlap = clusters.filter(c => c.tasks.length >= 3);
+            const uniqueTasks = clusters.filter(c => c.tasks.length === 1).length;
+            
+            let html = `
+                <div class="cluster-summary">
+                    <div class="cluster-stat">
+                        <span class="cluster-stat-num">${clusters.length}</span>
+                        <span class="cluster-stat-label">归集类别</span>
+                    </div>
+                    <div class="cluster-stat highlight">
+                        <span class="cluster-stat-num">${highOverlap.length}</span>
+                        <span class="cluster-stat-label">高重合聚类</span>
+                    </div>
+                    <div class="cluster-stat">
+                        <span class="cluster-stat-num">${totalTasks}</span>
+                        <span class="cluster-stat-label">工作项总数</span>
+                    </div>
+                </div>
+                <div class="cluster-list">
+            `;
+
+            clusters.forEach((cluster, idx) => {
+                const overlapLevel = cluster.tasks.length >= 4 ? 'high' : 
+                                    cluster.tasks.length >= 3 ? 'medium' : 
+                                    cluster.tasks.length >= 2 ? 'low' : 'unique';
+                
+                const overlapText = overlapLevel === 'high' ? '高度重合' :
+                                   overlapLevel === 'medium' ? '中度重合' :
+                                   overlapLevel === 'low' ? '轻度重合' : '独立任务';
+                
+                const overlapClass = overlapLevel === 'high' ? 'overlap-high' :
+                                    overlapLevel === 'medium' ? 'overlap-medium' :
+                                    overlapLevel === 'low' ? 'overlap-low' : 'overlap-unique';
+
+                html += `
+                    <div class="cluster-item">
+                        <div class="cluster-header">
+                            <span class="cluster-title">${escapeHtml(truncate(cluster.representative.desc, 30))}</span>
+                            <span class="cluster-count">${cluster.tasks.length}次</span>
+                            <span class="cluster-overlap ${overlapClass}">${overlapText}</span>
+                        </div>
+                        <div class="cluster-meta">
+                            <span>涉及${cluster.employees.size}人 · ${cluster.departments.size}部门</span>
+                            <span class="cluster-keywords">${cluster.keywords.slice(0, 3).join(' ')}</span>
+                        </div>
+                        <div class="cluster-employees">
+                            ${Array.from(cluster.employees).slice(0, 4).map(emp => 
+                                `<span class="emp-tag">${emp}</span>`
+                            ).join('')}
+                            ${cluster.employees.size > 4 ? `<span class="emp-more">+${cluster.employees.size - 4}</span>` : ''}
+                        </div>
+                        <div class="cluster-suggestion">
+                            ${overlapLevel !== 'unique' ? `<span class="suggestion-tag">建议合并优化</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function truncate(text, maxLen) {
+            if (text.length <= maxLen) return text;
+            return text.substring(0, maxLen) + '...';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 工具函数
 
         function updateAchievementChart(data) {
             const ctx = document.getElementById('achievementChart').getContext('2d');
