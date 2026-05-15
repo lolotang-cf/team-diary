@@ -102,6 +102,26 @@ async function initDatabase() {
             console.log('已初始化8名员工');
         }
 
+        // 数据库迁移：补充旧版本可能缺少的字段
+        const migrations = [
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS task_category TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS customer_name TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS customer_id TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS task_content TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS completion_status TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS achievement TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS difficulties TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS next_plan TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS follow_result TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS notes TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS tasks TEXT`,
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
+        ];
+        for (const sql of migrations) {
+            try { await client.query(sql); } catch(e) { /* 字段已存在则忽略 */ }
+        }
+
         console.log('数据库初始化完成');
     } finally {
         client.release();
