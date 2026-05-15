@@ -234,6 +234,22 @@ body {
     background: rgba(99, 102, 241, 0.05);
 }
 
+.btn-danger {
+    background: #FEE2E2;
+    color: #991B1B;
+    border: none;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-danger:hover {
+    background: #FECACA;
+    color: #7F1D1D;
+}
+
 /* ============ 统计卡片 ============ */
 .stats-grid {
     display: grid;

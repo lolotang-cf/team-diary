@@ -363,6 +363,12 @@
                 loadOverview();
                 clusterTasks();
             });
+            socket.on('report_deleted', (data) => {
+                showToast('有日报被删除');
+                loadReports();
+                loadStats();
+                loadOverview();
+            });
         }
 
         // 时钟
@@ -463,7 +469,10 @@
                     <td><span class="date-text">${r.created_at ? new Date(r.created_at).toLocaleString('zh-CN', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : '-'}</span></td>
                     <td><span class="task-count">${taskCount} 项</span></td>
                     <td class="task-cell">${taskSummary ? taskSummary.substring(0, 50) + (taskSummary.length > 50 ? '...' : '') : '-'}</td>
-                    <td><button onclick="event.stopPropagation(); showReportDetail(${r.id})" class="btn btn-sm btn-outline">查看</button></td>
+                    <td>
+                        <button onclick="event.stopPropagation(); showReportDetail(${r.id})" class="btn btn-sm btn-outline">查看</button>
+                        <button onclick="event.stopPropagation(); deleteReport(${r.id})" class="btn btn-sm btn-danger">删除</button>
+                    </td>
                 </tr>
                 `;
             }).join('');
@@ -1344,6 +1353,30 @@
                 }
             } catch (err) {
                 showToast('添加失败', 'error');
+            }
+        }
+
+        // 删除日报
+        async function deleteReport(id) {
+            if (!confirm('确定要删除这条日报吗？此操作不可恢复。')) return;
+
+            try {
+                const res = await fetch(`/api/reports/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('日报已删除');
+                    loadReports();
+                    loadStats();
+                    loadOverview();
+                    if (currentReportId === id) {
+                        closeModal();
+                    }
+                } else {
+                    showToast('删除失败', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('删除失败', 'error');
             }
         }
 

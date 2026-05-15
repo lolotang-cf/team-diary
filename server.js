@@ -436,6 +436,19 @@ app.get('/api/reports/:id/notes', async (req, res) => {
     }
 });
 
+// 删除日报
+app.delete('/api/reports/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM daily_reports WHERE id = $1', [id]);
+        io.emit('report_deleted', { id });
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, message: '删除失败' });
+    }
+});
+
 // 删除员工
 app.delete('/api/employees/:id', async (req, res) => {
     const { id } = req.params;
