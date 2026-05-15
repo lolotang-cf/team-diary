@@ -59,6 +59,15 @@
                     <span class="stat-label">提交率</span>
                 </div>
             </div>
+            <div class="stat-card stat-orange">
+                <div class="stat-icon-wrap">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-value" id="avgProgress">-%</span>
+                    <span class="stat-label">平均进度</span>
+                </div>
+            </div>
         </section>
 
         <!-- 筛选器 -->
@@ -220,9 +229,16 @@
                     <h3>📈 每日提交趋势</h3>
                     <canvas id="trendChart"></canvas>
                 </div>
+                <div class="card chart-card chart-card-wide">
+                    <h3>🧠 AI工作项归集</h3>
+                    <p class="chart-desc">智能归集类似工作项，发现可合并的高重合任务</p>
+                    <div id="taskClustering" class="task-clustering">
+                        <div class="loading-text">正在分析工作项...</div>
+                    </div>
+                </div>
                 <div class="card chart-card">
-                    <h3>✅ 完成情况</h3>
-                    <canvas id="completionChart"></canvas>
+                    <h3>🎯 达成情况</h3>
+                    <canvas id="achievementChart"></canvas>
                 </div>
             </div>
         </section>
@@ -293,6 +309,21 @@
         </div>
     </div>
 
+    <!-- AI工作项归集详情弹窗 -->
+    <div class="modal-overlay hidden" id="clusterDetailModal" onclick="closeClusterDetailOnOverlay(event)">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3>🔍 工作项归集详情</h3>
+                <button onclick="closeClusterDetail()" class="btn-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body" id="clusterDetailBody">
+                <!-- 动态内容 -->
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast"></div>
 
@@ -313,6 +344,7 @@
             loadEmployees();
             loadOverview();
             startClock();
+            clusterTasks(); // 启动AI归集分析
         });
 
         // Socket.IO
@@ -323,11 +355,13 @@
                 loadReports();
                 loadStats();
                 loadOverview();
+                clusterTasks();
             });
             socket.on('report_updated', (data) => {
                 loadReports();
                 loadStats();
                 loadOverview();
+                clusterTasks();
             });
         }
 
@@ -369,6 +403,10 @@
             document.getElementById('totalEmployees').textContent = stats.todayStats.total;
             document.getElementById('todaySubmitted').textContent = stats.todayStats.submitted;
             document.getElementById('todayRate').textContent = stats.todayStats.rate + '%';
+
+            const totalProgress = stats.deptStats.reduce((sum, d) => sum + (d.avg_progress || 0), 0);
+            const avgP = stats.deptStats.length > 0 ? Math.round(totalProgress / stats.deptStats.length) : 0;
+            document.getElementById('avgProgress').textContent = avgP + '%';
         }
 
         // 加载日报列表
@@ -431,6 +469,12 @@
             }).join('');
         }
 
+        function getProgressClass(p) {
+            if (p >= 100) return 'complete';
+            if (p >= 50) return 'mid';
+            return 'low';
+        }
+
         function getStatusClass(status) {
             if (status === '已完成') return 'status-green';
             if (status === '进行中' || status === '部分完成') return 'status-yellow';
@@ -485,6 +529,7 @@
                     </div>
                 </div>
                 ${tasksHtml}
+                ${report.achievement ? `<div class="detail-block"><span class="detail-label">🏆 达成情况</span><div class="detail-content">${report.achievement}</div></div>` : ''}
                 ${report.difficulties ? `<div class="detail-block"><span class="detail-label">🚧 遇到困难</span><div class="detail-content has-issue">${report.difficulties}</div></div>` : ''}
                 ${report.next_plan ? `<div class="detail-block"><span class="detail-label">💡 明日计划</span><div class="detail-content">${report.next_plan}</div></div>` : ''}
                 ${report.notes ? `<div class="detail-block"><span class="detail-label">📝 备注</span><div class="detail-content">${report.notes}</div></div>` : ''}
@@ -568,7 +613,7 @@
         function updateCharts(stats) {
             updateDeptChart(stats.deptStats);
             updateTrendChart(stats.dailyTrend);
-            updateCompletionChart(stats.completionStats || []);
+            updateAchievementChart(stats.achievementStats || []);
         }
 
         function updateDeptChart(data) {
@@ -629,16 +674,590 @@
         }
 
         function updateCompletionChart(data) {
-            const ctx = document.getElementById('completionChart').getContext('2d');
-            if (charts.completion) charts.completion.destroy();
+            // 已移除，由AI归集功能替代
+        }
 
-            charts.completion = new Chart(ctx, {
+        // ==================== AI工作项归集功能 ====================
+        
+        // 中文分词简单实现
+        function tokenizeChinese(text) {
+            // 移除标点符号
+            text = text.replace(/[，。！？、；：""''【】《》（）\u4e00-\u9fa5]/g, ' ');
+            // 简单的中文分词：按2-4字词滑动窗口提取
+            const words = [];
+            for (let i = 0; i < text.length - 1; i++) {
+                // 提取2-4字的词组
+                for (let len = 2; len <= 4 && i + len <= text.length; len++) {
+                    const word = text.substring(i, i + len);
+                    // 过滤常见无意义词
+                    if (!isStopWord(word)) {
+                        words.push(word);
+                    }
+                }
+            }
+            return words;
+        }
+
+        // 停用词列表
+        const stopWords = new Set([
+            '的', '了', '是', '在', '和', '与', '及', '等', '将', '已', '进行', '完成', '开展', '处理',
+            '一个', '进行', '工作', '任务', '事项', '相关', '负责', '对接', '参与', '协助', '配合',
+            '情况', '内容', '包括', '以及', '或者', '同时', '并且', '并且', '继续', '跟进', '做好',
+            '部分', '相关', '主要', '通过', '根据', '按照', '由于', '关于', '对于', '为了',
+            '今日', '今天', '本周', '本月', '目前', '现在', '当前', '本周', '本月', '当月',
+            '完成', '进行中', '部分', '完成', '推进', '跟进', '整理', '梳理', '优化', '完善',
+            '数据', '信息', '资料', '文档', '报告', '方案', '计划', '总结', '汇总', '统计',
+            '人员', '员工', '同事', '领导', '部门', '公司', '集团', '领导', '经理', '主管',
+            '确认', '核实', '检查', '审核', '审批', '通过', '同意', '协调', '沟通', '交流',
+            '其他', '其它', '各类', '各种', '多个', '若干', '一定', '一些', '部分'
+        ]);
+
+        function isStopWord(word) {
+            // 过滤单字、太长的词、以及停用词
+            if (word.length < 2) return true;
+            if (word.length > 6) return true;
+            return stopWords.has(word);
+        }
+
+        // 计算两个文本的相似度（基于词重叠）
+        function calculateSimilarity(text1, text2) {
+            const words1 = new Set(tokenizeChinese(text1));
+            const words2 = new Set(tokenizeChinese(text2));
+            
+            if (words1.size === 0 || words2.size === 0) return 0;
+            
+            // Jaccard相似度
+            const intersection = new Set([...words1].filter(x => words2.has(x)));
+            const union = new Set([...words1, ...words2]);
+            
+            return intersection.size / union.size;
+        }
+
+        // ===================== 今日智览 =====================
+        let overviewReports = [];
+
+        async function loadOverview() {
+            const date = document.getElementById('filterDate').value;
+            try {
+                const [empRes, repRes] = await Promise.all([
+                    fetch('/api/employees'),
+                    fetch(`/api/reports/all?date=${date}`)
+                ]);
+                const empData = await empRes.json();
+                const repData = await repRes.json();
+
+                if (empData.success) {
+                    employees = empData.data;
+                }
+                if (repData.success) {
+                    overviewReports = repData.data;
+                }
+
+                renderOverviewMetrics();
+                renderOverviewSubmitList();
+                renderOverviewWorkHighlights();
+                renderOverviewDifficulties();
+                renderOverviewPlans();
+            } catch (err) {
+                console.error('今日智览加载失败:', err);
+            }
+        }
+
+        function renderOverviewMetrics() {
+            const total = employees.length;
+            const submitted = overviewReports.length;
+            const rate = total > 0 ? Math.round((submitted / total) * 100) : 0;
+
+            document.getElementById('overviewSubmitted').textContent = submitted + '/' + total;
+            document.getElementById('overviewTotal').textContent = total;
+
+            let totalTasks = 0;
+            let doneOrProgress = 0;
+            overviewReports.forEach(r => {
+                try {
+                    const tasks = JSON.parse(r.tasks || '[]');
+                    totalTasks += tasks.length;
+                    tasks.forEach(t => {
+                        if (t.status === '已完成' || t.status === '进行中' || t.status === '部分完成') {
+                            doneOrProgress++;
+                        }
+                    });
+                } catch (e) {}
+            });
+            document.getElementById('overviewTaskCount').textContent = totalTasks;
+            const doneRate = totalTasks > 0 ? Math.round((doneOrProgress / totalTasks) * 100) : 0;
+            document.getElementById('overviewDoneRate').textContent = doneRate + '%';
+        }
+
+        // 提交状态列表
+        function renderOverviewSubmitList() {
+            const container = document.getElementById('overviewSubmitList');
+            const submittedIds = new Set(overviewReports.map(r => r.employee_id));
+
+            const rows = employees.map(emp => {
+                const submitted = submittedIds.has(emp.id);
+                const rep = overviewReports.find(r => r.employee_id === emp.id);
+                return { ...emp, submitted, rep };
+            });
+
+            if (rows.length === 0) {
+                container.innerHTML = '<div class="overview-empty">暂无数据</div>';
+                return;
+            }
+
+            container.innerHTML = rows.map(emp => {
+                const submitTime = emp.submitted && emp.rep && emp.rep.created_at
+                    ? new Date(emp.rep.created_at).toLocaleString('zh-CN', {hour:'2-digit', minute:'2-digit', second:'2-digit'})
+                    : '';
+                const badge = emp.submitted
+                    ? `<span class="overview-badge overview-badge-green">${submitTime ? '已提交 ' + submitTime : '已提交'}</span>`
+                    : '<span class="overview-badge overview-badge-gray">未提交</span>';
+                return `
+                    <div class="overview-submit-row">
+                        <div class="overview-avatar ${emp.submitted ? '' : 'overview-avatar-absent'}">${emp.name.charAt(0)}</div>
+                        <span class="overview-emp-name ${emp.submitted ? '' : 'overview-emp-name-muted'}">${emp.name}</span>
+                        <span class="overview-emp-dept">${emp.department}</span>
+                        ${badge}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 工作重点（词云）
+        function renderOverviewWorkHighlights() {
+            const container = document.getElementById('overviewWorkHighlights');
+            const wordCount = {};
+
+            overviewReports.forEach(r => {
+                try {
+                    const tasks = JSON.parse(r.tasks || '[]');
+                    tasks.forEach(t => {
+                        if (!t.desc) return;
+                        const words = t.desc.split(/[\s,，、]/).filter(w => w.length >= 2);
+                        words.forEach(w => {
+                            wordCount[w] = (wordCount[w] || 0) + 1;
+                        });
+                    });
+                } catch (e) {}
+            });
+
+            const sorted = Object.entries(wordCount).sort((a, b) => b[1] - a[1]);
+            const top = sorted.slice(0, 20);
+
+            if (top.length === 0) {
+                container.innerHTML = '<div class="overview-empty">暂无任务数据</div>';
+                return;
+            }
+
+            const maxCount = top[0][1];
+            container.innerHTML = top.map(([word, count]) => {
+                const ratio = count / maxCount;
+                const fontSize = 11 + Math.round(ratio * 5);
+                const opacity = 0.6 + ratio * 0.4;
+                return `<span class="overview-tag" style="font-size:${fontSize}px;opacity:${opacity}">${word}</span>`;
+            }).join('');
+        }
+
+        // 困难汇总
+        function renderOverviewDifficulties() {
+            const container = document.getElementById('overviewDifficulties');
+            const items = overviewReports.filter(r => r.difficulties && r.difficulties.trim());
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="overview-empty">今日无困难反馈</div>';
+                return;
+            }
+
+            container.innerHTML = items.map(r => {
+                const city = r.department.includes('南昌') ? '南昌' :
+                             r.department.includes('太原') ? '太原' :
+                             r.department.includes('晋中') ? '晋中' :
+                             r.department.includes('长沙') ? '长沙' : '';
+                return `
+                    <div class="overview-issue-item">
+                        <div class="overview-issue-content">${r.difficulties}</div>
+                        <div class="overview-issue-meta">${r.employee_name} · ${city}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 明日计划
+        function renderOverviewPlans() {
+            const container = document.getElementById('overviewPlans');
+            const items = overviewReports.filter(r => r.next_plan && r.next_plan.trim());
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="overview-empty">今日无计划</div>';
+                return;
+            }
+
+            container.innerHTML = items.map(r => {
+                const city = r.department.includes('南昌') ? '南昌' :
+                             r.department.includes('太原') ? '太原' :
+                             r.department.includes('晋中') ? '晋中' :
+                             r.department.includes('长沙') ? '长沙' : '';
+                return `
+                    <div class="overview-plan-item">
+                        <div class="overview-plan-content">${r.next_plan}</div>
+                        <div class="overview-plan-meta">${r.employee_name} · ${city}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 从日报中提取工作项并聚类
+        async function clusterTasks() {
+            try {
+                // 获取所有日报
+                const res = await fetch('/api/reports/all');
+                const data = await res.json();
+                
+                if (!data.success || data.data.length === 0) {
+                    document.getElementById('taskClustering').innerHTML = 
+                        '<div class="empty-state">暂无数据可供分析</div>';
+                    return;
+                }
+
+                // 提取所有工作项
+                let allTasks = [];
+                data.data.forEach(report => {
+                    try {
+                        const tasks = JSON.parse(report.tasks || '[]');
+                        tasks.forEach(task => {
+                            if (task.desc && task.desc.trim()) {
+                                allTasks.push({
+                                    desc: task.desc.trim(),
+                                    employee: report.employee_name,
+                                    department: report.department,
+                                    date: report.report_date,
+                                    status: task.status || '未设置'
+                                });
+                            }
+                        });
+                    } catch (e) {}
+                });
+
+                if (allTasks.length === 0) {
+                    document.getElementById('taskClustering').innerHTML = 
+                        '<div class="empty-state">暂无工作项数据</div>';
+                    return;
+                }
+
+                // 基于相似度聚类
+                const clusters = [];
+                const used = new Set();
+
+                allTasks.forEach((task, idx) => {
+                    if (used.has(idx)) return;
+                    
+                    const cluster = {
+                        representative: task,
+                        tasks: [task],
+                        employees: new Set([task.employee]),
+                        departments: new Set([task.department]),
+                        keywords: extractKeywords(task.desc)
+                    };
+                    used.add(idx);
+
+                    // 查找相似任务
+                    allTasks.forEach((other, otherIdx) => {
+                        if (used.has(otherIdx)) return;
+                        
+                        const similarity = calculateSimilarity(task.desc, other.desc);
+                        if (similarity >= 0.3) { // 相似度阈值
+                            cluster.tasks.push(other);
+                            cluster.employees.add(other.employee);
+                            cluster.departments.add(other.department);
+                            used.add(otherIdx);
+                        }
+                    });
+
+                    clusters.push(cluster);
+                });
+
+                // 按任务数量排序，取前12个聚类
+                clusters.sort((a, b) => b.tasks.length - a.tasks.length);
+                const topClusters = clusters.slice(0, 12);
+
+                // 渲染归集结果
+                renderTaskClusters(topClusters, allTasks.length);
+
+            } catch (err) {
+                console.error('聚类分析失败:', err);
+                document.getElementById('taskClustering').innerHTML = 
+                    '<div class="empty-state">分析失败，请重试</div>';
+            }
+        }
+
+        // 提取关键词
+        function extractKeywords(text) {
+            const words = tokenizeChinese(text);
+            const freq = {};
+            words.forEach(w => freq[w] = (freq[w] || 0) + 1);
+            
+            return Object.entries(freq)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(e => e[0]);
+        }
+
+        // 渲染聚类结果
+        function renderTaskClusters(clusters, totalTasks) {
+            currentClusters = clusters; // 保存到全局变量
+            const container = document.getElementById('taskClustering');
+            
+            // 计算统计信息
+            const highOverlap = clusters.filter(c => c.tasks.length >= 3);
+            const uniqueTasks = clusters.filter(c => c.tasks.length === 1).length;
+            
+            let html = `
+                <div class="cluster-summary">
+                    <div class="cluster-stat">
+                        <span class="cluster-stat-num">${clusters.length}</span>
+                        <span class="cluster-stat-label">归集类别</span>
+                    </div>
+                    <div class="cluster-stat highlight">
+                        <span class="cluster-stat-num">${highOverlap.length}</span>
+                        <span class="cluster-stat-label">高重合聚类</span>
+                    </div>
+                    <div class="cluster-stat">
+                        <span class="cluster-stat-num">${totalTasks}</span>
+                        <span class="cluster-stat-label">工作项总数</span>
+                    </div>
+                </div>
+                <div class="cluster-list">
+            `;
+
+            clusters.forEach((cluster, idx) => {
+                const overlapLevel = cluster.tasks.length >= 4 ? 'high' : 
+                                    cluster.tasks.length >= 3 ? 'medium' : 
+                                    cluster.tasks.length >= 2 ? 'low' : 'unique';
+                
+                const overlapText = overlapLevel === 'high' ? '高度重合' :
+                                   overlapLevel === 'medium' ? '中度重合' :
+                                   overlapLevel === 'low' ? '轻度重合' : '独立任务';
+                
+                const overlapClass = overlapLevel === 'high' ? 'overlap-high' :
+                                    overlapLevel === 'medium' ? 'overlap-medium' :
+                                    overlapLevel === 'low' ? 'overlap-low' : 'overlap-unique';
+
+                html += `
+                    <div class="cluster-item" onclick="showClusterDetail(${idx})" style="cursor: pointer;">
+                        <div class="cluster-header">
+                            <span class="cluster-title">${escapeHtml(truncate(cluster.representative.desc, 30))}</span>
+                            <span class="cluster-count">${cluster.tasks.length}次</span>
+                            <span class="cluster-overlap ${overlapClass}">${overlapText}</span>
+                        </div>
+                        <div class="cluster-meta">
+                            <span>涉及${cluster.employees.size}人 · ${cluster.departments.size}部门</span>
+                            <span class="cluster-keywords">${cluster.keywords.slice(0, 3).join(' ')}</span>
+                        </div>
+                        <div class="cluster-employees">
+                            ${Array.from(cluster.employees).slice(0, 4).map(emp =>
+                                `<span class="emp-tag">${emp}</span>`
+                            ).join('')}
+                            ${cluster.employees.size > 4 ? `<span class="emp-more">+${cluster.employees.size - 4}</span>` : ''}
+                        </div>
+                        <div class="cluster-suggestion">
+                            ${overlapLevel !== 'unique' ? `<span class="suggestion-tag">建议合并优化</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // 全局变量存储聚类数据
+        let currentClusters = [];
+
+        // 显示归集详情弹窗
+        function showClusterDetail(clusterIndex) {
+            const cluster = currentClusters[clusterIndex];
+            if (!cluster) return;
+
+            const modalBody = document.getElementById('clusterDetailBody');
+
+            // 按员工分组统计
+            const employeeTasks = {};
+            cluster.tasks.forEach(task => {
+                if (!employeeTasks[task.employee]) {
+                    employeeTasks[task.employee] = {
+                        department: task.department,
+                        tasks: [],
+                        dates: []
+                    };
+                }
+                employeeTasks[task.employee].tasks.push(task);
+                employeeTasks[task.employee].dates.push(task.date);
+            });
+
+            // 按日期分组统计
+            const dateTasks = {};
+            cluster.tasks.forEach(task => {
+                if (!dateTasks[task.date]) {
+                    dateTasks[task.date] = [];
+                }
+                dateTasks[task.date].push(task);
+            });
+
+            // 生成员工明细HTML
+            let employeeDetailsHtml = '';
+            Object.entries(employeeTasks).forEach(([empName, empData]) => {
+                const uniqueDates = [...new Set(empData.dates)].sort();
+                employeeDetailsHtml += `
+                    <div class="detail-employee-card">
+                        <div class="detail-employee-header">
+                            <div class="detail-employee-info">
+                                <span class="detail-employee-name">${empName}</span>
+                                <span class="detail-employee-dept">${empData.department}</span>
+                            </div>
+                            <span class="detail-employee-count">${empData.tasks.length} 次提及</span>
+                        </div>
+                        <div class="detail-employee-dates">
+                            ${uniqueDates.map(d => `<span class="date-tag">${d}</span>`).join('')}
+                        </div>
+                        <div class="detail-employee-tasks">
+                            ${empData.tasks.map((task, idx) => `
+                                <div class="detail-task-item">
+                                    <span class="detail-task-num">#${idx + 1}</span>
+                                    <span class="detail-task-date">${task.date}</span>
+                                    <span class="detail-task-status ${getStatusClass(task.status)}">${task.status || '未设置'}</span>
+                                    <div class="detail-task-desc">${escapeHtml(task.desc)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 生成日期时间线HTML
+            const sortedDates = Object.keys(dateTasks).sort();
+            let timelineHtml = '';
+            sortedDates.forEach(date => {
+                const dayTasks = dateTasks[date];
+                timelineHtml += `
+                    <div class="timeline-item">
+                        <div class="timeline-date">
+                            <span class="timeline-dot"></span>
+                            <span class="timeline-date-text">${date}</span>
+                            <span class="timeline-count">${dayTasks.length} 项</span>
+                        </div>
+                        <div class="timeline-tasks">
+                            ${dayTasks.map(task => `
+                                <div class="timeline-task">
+                                    <span class="timeline-emp">${task.employee}</span>
+                                    <span class="timeline-task-desc">${escapeHtml(truncate(task.desc, 40))}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 生成统计信息
+            const overlapLevel = cluster.tasks.length >= 4 ? 'high' :
+                                cluster.tasks.length >= 3 ? 'medium' :
+                                cluster.tasks.length >= 2 ? 'low' : 'unique';
+            const overlapText = overlapLevel === 'high' ? '高度重合' :
+                               overlapLevel === 'medium' ? '中度重合' :
+                               overlapLevel === 'low' ? '轻度重合' : '独立任务';
+
+            modalBody.innerHTML = `
+                <div class="cluster-detail-summary">
+                    <div class="detail-summary-item">
+                        <span class="detail-summary-label">归集主题</span>
+                        <span class="detail-summary-value">${escapeHtml(cluster.representative.desc)}</span>
+                    </div>
+                    <div class="detail-summary-row">
+                        <div class="detail-summary-item">
+                            <span class="detail-summary-label">涉及人员</span>
+                            <span class="detail-summary-value">${cluster.employees.size} 人</span>
+                        </div>
+                        <div class="detail-summary-item">
+                            <span class="detail-summary-label">涉及部门</span>
+                            <span class="detail-summary-value">${cluster.departments.size} 个</span>
+                        </div>
+                        <div class="detail-summary-item">
+                            <span class="detail-summary-label">出现次数</span>
+                            <span class="detail-summary-value">${cluster.tasks.length} 次</span>
+                        </div>
+                        <div class="detail-summary-item">
+                            <span class="detail-summary-label">重合度</span>
+                            <span class="detail-summary-value overlap-badge ${overlapLevel}">${overlapText}</span>
+                        </div>
+                    </div>
+                    <div class="detail-summary-item">
+                        <span class="detail-summary-label">关键词</span>
+                        <span class="detail-summary-keywords">${cluster.keywords.map(k => `<span class="keyword-tag">${k}</span>`).join('')}</span>
+                    </div>
+                </div>
+
+                <div class="detail-tabs">
+                    <button class="detail-tab active" onclick="switchDetailTab('employees', this)">👥 人员明细</button>
+                    <button class="detail-tab" onclick="switchDetailTab('timeline', this)">📅 日期时间线</button>
+                </div>
+
+                <div class="detail-tab-content active" id="employeesTab">
+                    ${employeeDetailsHtml}
+                </div>
+
+                <div class="detail-tab-content" id="timelineTab">
+                    <div class="timeline-container">
+                        ${timelineHtml}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('clusterDetailModal').classList.remove('hidden');
+        }
+
+        // 切换详情标签页
+        function switchDetailTab(tab, btn) {
+            document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.detail-tab-content').forEach(c => c.classList.remove('active'));
+
+            btn.classList.add('active');
+            document.getElementById(tab + 'Tab').classList.add('active');
+        }
+
+        // 关闭归集详情弹窗
+        function closeClusterDetail() {
+            document.getElementById('clusterDetailModal').classList.add('hidden');
+        }
+
+        function closeClusterDetailOnOverlay(event) {
+            if (event.target === document.getElementById('clusterDetailModal')) {
+                closeClusterDetail();
+            }
+        }
+
+        function truncate(text, maxLen) {
+            if (text.length <= maxLen) return text;
+            return text.substring(0, maxLen) + '...';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 工具函数
+
+        function updateAchievementChart(data) {
+            const ctx = document.getElementById('achievementChart').getContext('2d');
+            if (charts.achievement) charts.achievement.destroy();
+
+            charts.achievement = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: data.map(d => d.completion_status),
+                    labels: data.map(d => d.achievement),
                     datasets: [{
                         data: data.map(d => d.count),
-                        backgroundColor: ['#10B981', '#F59E0B', '#6366F1', '#EF4444', '#8B5CF6'],
+                        backgroundColor: ['#F59E0B', '#6366F1', '#10B981', '#EF4444'],
                         borderWidth: 0,
                         hoverOffset: 8
                     }]
@@ -747,193 +1366,6 @@
             toast.textContent = message;
             toast.className = `toast show ${type}`;
             setTimeout(() => toast.classList.remove('show'), 3000);
-        }
-
-        // ===================== 今日智览 =====================
-        let overviewReports = [];
-
-        async function loadOverview() {
-            const date = document.getElementById('filterDate').value;
-            try {
-                const [empRes, repRes] = await Promise.all([
-                    fetch('/api/employees'),
-                    fetch(`/api/reports/all?date=${date}`)
-                ]);
-                const empData = await empRes.json();
-                const repData = await repRes.json();
-
-                if (empData.success && repData.success) {
-                    employees = empData.data;
-                    overviewReports = repData.data;
-                    renderOverviewMetrics();
-                    renderOverviewSubmitList();
-                    renderOverviewWorkHighlights();
-                    renderOverviewDifficulties();
-                    renderOverviewPlans();
-                }
-            } catch (err) {
-                console.error('今日智览加载失败', err);
-            }
-        }
-
-        // 更新顶部统计卡片后同步智览
-        const origUpdateStatsCards = updateStatsCards;
-        updateStatsCards = function(stats) {
-            origUpdateStatsCards(stats);
-            document.getElementById('overviewSubmitted').textContent = stats.todayStats.submitted + '/' + stats.todayStats.total;
-            document.getElementById('overviewTotal').textContent = stats.todayStats.total;
-        };
-
-        // 数字概览
-        function renderOverviewMetrics() {
-            const total = employees.length;
-            const submitted = overviewReports.length;
-            const rate = total > 0 ? Math.round((submitted / total) * 100) : 0;
-
-            document.getElementById('overviewSubmitted').textContent = submitted + '/' + total;
-            document.getElementById('overviewTotal').textContent = total;
-
-            // 任务总数 & 完成率
-            let totalTasks = 0;
-            let doneOrProgress = 0;
-            overviewReports.forEach(r => {
-                try {
-                    const tasks = JSON.parse(r.tasks || '[]');
-                    totalTasks += tasks.length;
-                    tasks.forEach(t => {
-                        if (t.status === '已完成' || t.status === '进行中' || t.status === '部分完成') {
-                            doneOrProgress++;
-                        }
-                    });
-                } catch (e) {}
-            });
-            document.getElementById('overviewTaskCount').textContent = totalTasks;
-            const doneRate = totalTasks > 0 ? Math.round((doneOrProgress / totalTasks) * 100) : 0;
-            document.getElementById('overviewDoneRate').textContent = doneRate + '%';
-        }
-
-        // 提交状态列表
-        function renderOverviewSubmitList() {
-            const container = document.getElementById('overviewSubmitList');
-            const submittedIds = new Set(overviewReports.map(r => r.employee_id));
-
-            const rows = employees.map(emp => {
-                const submitted = submittedIds.has(emp.id);
-                const rep = overviewReports.find(r => r.employee_id === emp.id);
-                return { ...emp, submitted, rep };
-            });
-
-            if (rows.length === 0) {
-                container.innerHTML = '<div class="overview-empty">暂无数据</div>';
-                return;
-            }
-
-            container.innerHTML = rows.map(emp => {
-                const submitTime = emp.submitted && emp.rep && emp.rep.created_at
-                    ? new Date(emp.rep.created_at).toLocaleString('zh-CN', {hour:'2-digit', minute:'2-digit', second:'2-digit'})
-                    : '';
-                const badge = emp.submitted
-                    ? `<span class="overview-badge overview-badge-green">${submitTime ? '已提交 ' + submitTime : '已提交'}</span>`
-                    : '<span class="overview-badge overview-badge-gray">未提交</span>';
-                return `
-                    <div class="overview-submit-row">
-                        <div class="overview-avatar ${emp.submitted ? '' : 'overview-avatar-absent'}">${emp.name.charAt(0)}</div>
-                        <span class="overview-emp-name ${emp.submitted ? '' : 'overview-emp-name-muted'}">${emp.name}</span>
-                        <span class="overview-emp-dept">${emp.department}</span>
-                        ${badge}
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // 工作重点（词云）
-        function renderOverviewWorkHighlights() {
-            const container = document.getElementById('overviewWorkHighlights');
-            const wordCount = {};
-
-            overviewReports.forEach(r => {
-                try {
-                    const tasks = JSON.parse(r.tasks || '[]');
-                    tasks.forEach(t => {
-                        if (!t.desc) return;
-                        // 简单分词：按空格、逗号、顿号分
-                        const words = t.desc.split(/[\s,，、]/).filter(w => w.length >= 2);
-                        words.forEach(w => {
-                            wordCount[w] = (wordCount[w] || 0) + 1;
-                        });
-                    });
-                } catch (e) {}
-            });
-
-            const sorted = Object.entries(wordCount).sort((a, b) => b[1] - a[1]);
-            const top = sorted.slice(0, 20);
-
-            if (top.length === 0) {
-                container.innerHTML = '<div class="overview-empty">暂无任务数据</div>';
-                return;
-            }
-
-            const maxCount = top[0][1];
-            container.innerHTML = top.map(([word, count]) => {
-                const ratio = count / maxCount;
-                const fontSize = 11 + Math.round(ratio * 5);
-                const opacity = 0.6 + ratio * 0.4;
-                return `<span class="overview-tag" style="font-size:${fontSize}px;opacity:${opacity}">${word}</span>`;
-            }).join('');
-        }
-
-        // 困难汇总
-        function renderOverviewDifficulties() {
-            const container = document.getElementById('overviewDifficulties');
-            const items = overviewReports.filter(r => r.difficulties && r.difficulties.trim());
-
-            if (items.length === 0) {
-                container.innerHTML = '<div class="overview-empty">今日无困难反馈</div>';
-                return;
-            }
-
-            container.innerHTML = items.map(r => {
-                const city = r.department.includes('南昌') ? '南昌' :
-                             r.department.includes('太原') ? '太原' :
-                             r.department.includes('晋中') ? '晋中' :
-                             r.department.includes('长沙') ? '长沙' : '';
-                return `
-                    <div class="overview-issue-item">
-                        <div class="overview-issue-content">${escapeHtml(r.difficulties)}</div>
-                        <div class="overview-issue-meta">${r.employee_name}${city ? ' · ' + city : ''}</div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // 明日计划
-        function renderOverviewPlans() {
-            const container = document.getElementById('overviewPlans');
-            const items = overviewReports.filter(r => r.next_plan && r.next_plan.trim());
-
-            if (items.length === 0) {
-                container.innerHTML = '<div class="overview-empty">暂无明日计划</div>';
-                return;
-            }
-
-            container.innerHTML = items.map(r => {
-                const city = r.department.includes('南昌') ? '南昌' :
-                             r.department.includes('太原') ? '太原' :
-                             r.department.includes('晋中') ? '晋中' :
-                             r.department.includes('长沙') ? '长沙' : '';
-                return `
-                    <div class="overview-plan-item">
-                        <div class="overview-plan-content">${escapeHtml(r.next_plan)}</div>
-                        <div class="overview-plan-meta">${r.employee_name}${city ? ' · ' + city : ''}</div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
     </script>
 </body>
