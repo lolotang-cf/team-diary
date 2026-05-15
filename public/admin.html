@@ -681,16 +681,23 @@
         
         // 中文分词简单实现
         function tokenizeChinese(text) {
-            // 移除标点符号
-            text = text.replace(/[，。！？、；：""''【】《》（）\u4e00-\u9fa5]/g, ' ');
-            // 简单的中文分词：按2-4字词滑动窗口提取
+            // 移除标点符号（只移除真正的标点，不移除汉字！）
+            // 注意：\u4e00-\u9fa5 是汉字范围，绝对不要包含在这里
+            text = text.replace(/[，。！？、；：""''【】《》（）\s\d]/g, ' ');
+            
             const words = [];
-            for (let i = 0; i < text.length - 1; i++) {
-                // 提取2-4字的词组
-                for (let len = 2; len <= 4 && i + len <= text.length; len++) {
-                    const word = text.substring(i, i + len);
-                    // 过滤常见无意义词
-                    if (!isStopWord(word)) {
+            const len = text.length;
+            
+            for (let i = 0; i < len; i++) {
+                // 跳过空格和标点
+                const ch = text.charAt(i);
+                if (/\s/.test(ch)) continue;
+                
+                // 提取2-4字的中文词组
+                for (let wlen = 2; wlen <= 4 && i + wlen <= len; wlen++) {
+                    const word = text.substring(i, i + wlen);
+                    // 确保词组主要由中文组成
+                    if (/^[\u4e00-\u9fa5]+$/.test(word) && !isStopWord(word)) {
                         words.push(word);
                     }
                 }
@@ -1051,7 +1058,7 @@
                         </div>
                         <div class="cluster-meta">
                             <span>涉及${cluster.employees.size}人 · ${cluster.departments.size}部门</span>
-                            <span class="cluster-keywords">${cluster.keywords.slice(0, 3).join(' ')}</span>
+                            <span class="cluster-keywords">${cluster.keywords.length > 0 ? cluster.keywords.slice(0, 3).join(' ') : '<span style="color:#999;font-size:12px">暂无关键词</span>'}</span>
                         </div>
                         <div class="cluster-employees">
                             ${Array.from(cluster.employees).slice(0, 4).map(emp =>
@@ -1191,7 +1198,7 @@
                     </div>
                     <div class="detail-summary-item">
                         <span class="detail-summary-label">关键词</span>
-                        <span class="detail-summary-keywords">${cluster.keywords.map(k => `<span class="keyword-tag">${k}</span>`).join('')}</span>
+                        <span class="detail-summary-keywords">${cluster.keywords.length > 0 ? cluster.keywords.map(k => `<span class="keyword-tag">${k}</span>`).join('') : '<span style="color:#999;font-size:13px">暂无关键词</span>'}</span>
                     </div>
                 </div>
 
