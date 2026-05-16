@@ -237,8 +237,10 @@
                     </div>
                 </div>
                 <div class="card chart-card">
-                    <h3>🎯 达成情况</h3>
-                    <canvas id="achievementChart"></canvas>
+                    <h3>📝 最新日报速览</h3>
+                    <div id="latestReports" class="latest-reports-list">
+                        <div class="loading-text">加载中...</div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -343,6 +345,7 @@
             loadReports();
             loadEmployees();
             loadOverview();
+            loadLatestReports();
             startClock();
             clusterTasks(); // 启动AI归集分析
         });
@@ -355,12 +358,14 @@
                 loadReports();
                 loadStats();
                 loadOverview();
+                loadLatestReports();
                 clusterTasks();
             });
             socket.on('report_updated', (data) => {
                 loadReports();
                 loadStats();
                 loadOverview();
+                loadLatestReports();
                 clusterTasks();
             });
             socket.on('report_deleted', (data) => {
@@ -629,7 +634,6 @@
         function updateCharts(stats) {
             updateDeptChart(stats.deptStats);
             updateTrendChart(stats.dailyTrend);
-            updateAchievementChart(stats.achievementStats || []);
         }
 
         function updateDeptChart(data) {
@@ -1276,25 +1280,67 @@
         // 工具函数
 
         function updateAchievementChart(data) {
-            const ctx = document.getElementById('achievementChart').getContext('2d');
-            if (charts.achievement) charts.achievement.destroy();
+            // 已移除空饼图，由最新日报速览替代
+        }
 
-            charts.achievement = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: data.map(d => d.achievement),
-                    datasets: [{
-                        data: data.map(d => d.count),
-                        backgroundColor: ['#F59E0B', '#6366F1', '#10B981', '#EF4444'],
-                        borderWidth: 0,
-                        hoverOffset: 8
-                    }]
-                },
-                options: { 
-                    responsive: true,
-                    plugins: { legend: { position: 'bottom' } }
+        // ==================== 最新日报速览 ====================
+        async function loadLatestReports() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const res = await fetch(`/api/reports/all?date=${today}`);
+                const data = await res.json();
+                if (data.success) {
+                    const reports = data.data
+                        .filter(r => r.created_at)
+                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                        .slice(0, 5);
+                    renderLatestReports(reports);
                 }
-            });
+            } catch (err) {
+                console.error('加载最新日报失败:', err);
+            }
+        }
+
+        function renderLatestReports(reports) {
+            const container = document.getElementById('latestReports');
+            if (!reports || reports.length === 0) {
+                container.innerHTML = '<div class="latest-empty">今日暂无日报</div>';
+                return;
+            }
+
+            container.innerHTML = reports.map(r => {
+                let taskCount = 0;
+                let taskSummary = '-';
+                try {
+                    const tasks = JSON.parse(r.tasks || '[]');
+                    taskCount = tasks.length;
+                    taskSummary = tasks.slice(0, 2).map(t => t.desc).join('；');
+                    if (taskSummary.length > 40) taskSummary = taskSummary.substring(0, 40) + '...';
+                } catch (e) {}
+
+                const submitTime = r.created_at
+                    ? new Date(r.created_at).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : '-';
+
+                return `
+                    <div class="latest-report-card" onclick="showReportDetail(${r.id})">
+                        <div class="latest-report-header">
+                            <div class="latest-report-user">
+                                <div class="latest-avatar">${r.employee_name ? r.employee_name.charAt(0) : '?'}</div>
+                                <div class="latest-user-info">
+                                    <span class="latest-name">${r.employee_name || '未知'}</span>
+                                    <span class="latest-dept">${r.department || ''}</span>
+                                </div>
+                            </div>
+                            <span class="latest-time">${submitTime}</span>
+                        </div>
+                        <div class="latest-report-body">
+                            <span class="latest-task-badge">${taskCount} 项任务</span>
+                            <span class="latest-summary">${taskSummary}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         // 加载员工列表

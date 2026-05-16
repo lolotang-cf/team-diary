@@ -1733,6 +1733,119 @@ body {
     font-weight: 600;
 }
 
+/* ============ 最新日报速览 ============ */
+.latest-reports-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.latest-report-card {
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 2px solid transparent;
+}
+
+.latest-report-card:hover {
+    border-color: var(--primary-light);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+}
+
+.latest-report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.latest-report-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.latest-avatar {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--primary), var(--pink));
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.latest-user-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.latest-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.latest-dept {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.latest-time {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: white;
+    padding: 3px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.latest-report-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.latest-task-badge {
+    display: inline-block;
+    width: fit-content;
+    padding: 2px 8px;
+    background: #EEF2FF;
+    color: var(--primary);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.latest-summary {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.latest-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
 @media (max-width: 768px) {
     .overview-grid {
         grid-template-columns: 1fr;
