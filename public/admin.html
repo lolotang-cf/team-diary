@@ -678,65 +678,82 @@
         }
 
         // ==================== AI工作项归集功能 ====================
-        
-        // 中文分词简单实现
-        function tokenizeChinese(text) {
-            // 移除标点符号（只移除真正的标点，不移除汉字！）
-            // 注意：\u4e00-\u9fa5 是汉字范围，绝对不要包含在这里
-            text = text.replace(/[，。！？、；：""''【】《》（）\s\d]/g, ' ');
-            
-            const words = [];
-            const len = text.length;
-            
-            for (let i = 0; i < len; i++) {
-                // 跳过空格和标点
-                const ch = text.charAt(i);
-                if (/\s/.test(ch)) continue;
-                
-                // 提取2-4字的中文词组
-                for (let wlen = 2; wlen <= 4 && i + wlen <= len; wlen++) {
-                    const word = text.substring(i, i + wlen);
-                    // 确保词组主要由中文组成
-                    if (/^[\u4e00-\u9fa5]+$/.test(word) && !isStopWord(word)) {
-                        words.push(word);
-                    }
-                }
-            }
-            return words;
-        }
 
-        // 停用词列表
+        // 停用词列表（单字虚词 + 常见无意义词）
         const stopWords = new Set([
-            '的', '了', '是', '在', '和', '与', '及', '等', '将', '已', '进行', '完成', '开展', '处理',
-            '一个', '进行', '工作', '任务', '事项', '相关', '负责', '对接', '参与', '协助', '配合',
-            '情况', '内容', '包括', '以及', '或者', '同时', '并且', '并且', '继续', '跟进', '做好',
-            '部分', '相关', '主要', '通过', '根据', '按照', '由于', '关于', '对于', '为了',
-            '今日', '今天', '本周', '本月', '目前', '现在', '当前', '本周', '本月', '当月',
-            '完成', '进行中', '部分', '完成', '推进', '跟进', '整理', '梳理', '优化', '完善',
-            '数据', '信息', '资料', '文档', '报告', '方案', '计划', '总结', '汇总', '统计',
-            '人员', '员工', '同事', '领导', '部门', '公司', '集团', '领导', '经理', '主管',
-            '确认', '核实', '检查', '审核', '审批', '通过', '同意', '协调', '沟通', '交流',
-            '其他', '其它', '各类', '各种', '多个', '若干', '一定', '一些', '部分'
+            // 单字虚词
+            '的','了','是','在','和','与','及','等','将','已','也','都','把','被','对','向',
+            '从','到','让','给','用','有','没','不','很','就','去','来','而','但','或','又',
+            // 双字虚词/动词
+            '进行','完成','开展','处理','一个','工作','任务','事项','相关','负责','对接',
+            '参与','协助','配合','情况','内容','包括','以及','或者','同时','并且','继续',
+            '跟进','做好','部分','主要','通过','根据','按照','由于','关于','对于','为了',
+            '今日','今天','本周','本月','目前','现在','当前','当月','进行中','推进','整理',
+            '梳理','优化','完善','数据','信息','资料','文档','报告','方案','计划','总结',
+            '汇总','统计','人员','员工','同事','领导','部门','公司','集团','经理','主管',
+            '确认','核实','检查','审核','审批','同意','协调','沟通','交流','其他','其它',
+            '各类','各种','多个','若干','一定','一些','问题','情况','开始','安排','结果',
+            '过程','阶段','工作','开会','会议','参加','记录','填写','提交','上报','反馈',
+            '落实','执行','支持','保证','确保','做到','做了','做完','已完','已做'
         ]);
 
-        function isStopWord(word) {
-            // 过滤单字、太长的词、以及停用词
-            if (word.length < 2) return true;
-            if (word.length > 6) return true;
-            return stopWords.has(word);
+        // 把文本切分为纯中文"段"（连续汉字序列），供相似度计算使用
+        function tokenizeChinese(text) {
+            if (!text) return [];
+            // 提取所有连续中文片段
+            const segments = text.match(/[\u4e00-\u9fa5]{2,}/g) || [];
+            const words = new Set();
+            segments.forEach(seg => {
+                // 对每个连续汉字段做2-4字滑动窗口，仅用于相似度计算
+                for (let i = 0; i < seg.length; i++) {
+                    for (let wlen = 2; wlen <= 4 && i + wlen <= seg.length; wlen++) {
+                        const word = seg.substring(i, i + wlen);
+                        if (!stopWords.has(word)) words.add(word);
+                    }
+                }
+            });
+            return [...words];
         }
 
-        // 计算两个文本的相似度（基于词重叠）
+        // 从单条文本中提取精准关键词（不用频率，用"最长不被包含"策略）
+        function extractKeywords(text) {
+            if (!text) return [];
+            // 1. 提取所有连续中文段
+            const segments = text.match(/[\u4e00-\u9fa5]{2,}/g) || [];
+            if (segments.length === 0) return [];
+
+            // 2. 收集所有2-5字候选词
+            const candidates = new Set();
+            segments.forEach(seg => {
+                for (let i = 0; i < seg.length; i++) {
+                    for (let wlen = 2; wlen <= 5 && i + wlen <= seg.length; wlen++) {
+                        const word = seg.substring(i, i + wlen);
+                        if (!stopWords.has(word)) candidates.add(word);
+                    }
+                }
+            });
+
+            // 3. 去掉"被更长词包含"的子串（精华去冗余）
+            //    例如："客服工单"已有，则"客服"、"工单"、"客服工"、"服工单"都去掉
+            const arr = [...candidates].sort((a, b) => b.length - a.length);
+            const kept = [];
+            arr.forEach(word => {
+                // 若当前词是某个已保留词的子串，丢弃
+                const isSubstr = kept.some(longer => longer.includes(word));
+                if (!isSubstr) kept.push(word);
+            });
+
+            // 4. 优先留较长词（更具语义），取前5个
+            return kept.slice(0, 5);
+        }
+
+        // 计算两个文本的相似度（基于词重叠 Jaccard）
         function calculateSimilarity(text1, text2) {
             const words1 = new Set(tokenizeChinese(text1));
             const words2 = new Set(tokenizeChinese(text2));
-            
             if (words1.size === 0 || words2.size === 0) return 0;
-            
-            // Jaccard相似度
             const intersection = new Set([...words1].filter(x => words2.has(x)));
             const union = new Set([...words1, ...words2]);
-            
             return intersection.size / union.size;
         }
 
@@ -995,18 +1012,6 @@
                 document.getElementById('taskClustering').innerHTML = 
                     '<div class="empty-state">分析失败，请重试</div>';
             }
-        }
-
-        // 提取关键词
-        function extractKeywords(text) {
-            const words = tokenizeChinese(text);
-            const freq = {};
-            words.forEach(w => freq[w] = (freq[w] || 0) + 1);
-            
-            return Object.entries(freq)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5)
-                .map(e => e[0]);
         }
 
         // 渲染聚类结果
