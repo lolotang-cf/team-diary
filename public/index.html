@@ -93,6 +93,20 @@
     <!-- Toast 提示 -->
     <div id="toast" class="toast"></div>
 
+    <!-- 提交成功弹窗 -->
+    <div id="successModal" class="success-overlay hidden">
+        <div class="success-modal">
+            <div class="success-icon-wrap">
+                <svg class="success-checkmark" viewBox="0 0 52 52">
+                    <circle class="success-checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+                    <path class="success-checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                </svg>
+            </div>
+            <h3 class="success-title">提交成功</h3>
+            <p class="success-desc">日报已保存，感谢你的填写！</p>
+        </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         // 全局变量
@@ -335,7 +349,7 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    showToast(data.message);
+                    showSuccessModal();
                     socket.emit('submit_report', data.data);
                 } else {
                     showToast(data.message, 'error');
@@ -345,13 +359,40 @@
             }
         }
 
-        // Toast 提示
+        // Toast 提示（用于错误/普通提示）
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             toast.textContent = message;
             toast.className = `toast show ${type}`;
             setTimeout(() => toast.classList.remove('show'), 3000);
         }
+
+        // 提交成功弹窗（SVG 打勾动画）
+        let successModalTimer = null;
+        function showSuccessModal() {
+            const overlay = document.getElementById('successModal');
+            overlay.classList.remove('hidden');
+            // 强制重绘以触发动画
+            void overlay.offsetWidth;
+            overlay.classList.add('show');
+
+            // 3秒后自动关闭
+            if (successModalTimer) clearTimeout(successModalTimer);
+            successModalTimer = setTimeout(() => {
+                overlay.classList.remove('show');
+                setTimeout(() => overlay.classList.add('hidden'), 400);
+            }, 3000);
+        }
+
+        // 点击遮罩关闭弹窗
+        document.getElementById('successModal').addEventListener('click', (e) => {
+            if (e.target.id === 'successModal') {
+                const overlay = document.getElementById('successModal');
+                overlay.classList.remove('show');
+                setTimeout(() => overlay.classList.add('hidden'), 400);
+                if (successModalTimer) clearTimeout(successModalTimer);
+            }
+        });
     </script>
 </body>
 </html>
