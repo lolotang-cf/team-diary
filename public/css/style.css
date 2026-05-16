@@ -736,9 +736,83 @@ input[type="range"]::-webkit-slider-thumb:hover {
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
-/* 必填标记 */
-.form-group .required,
-.task-status label .required {
-    color: var(--danger);
-    font-size: 14px;
+/* ============ 批注提醒 ============ */
+.note-alert-box {
+    background: linear-gradient(135deg, #FFF7ED 0%, #FFFBEB 100%);
+    border: 2px solid #F59E0B;
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    margin-bottom: 16px;
+    animation: fadeInUp 0.4s ease-out;
 }
+
+.note-alert-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.note-alert-badge {
+    font-size: 20px;
+}
+
+.note-alert-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #92400E;
+}
+
+.note-alert-content {
+    margin-bottom: 12px;
+}
+
+.note-alert-item {
+    background: white;
+    border-radius: 10px;
+    padding: 12px;
+    border-left: 4px solid var(--accent);
+    box-shadow: var(--shadow-sm);
+}
+
+.note-alert-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.note-alert-text {
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.note-reply-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.note-reply-box textarea {
+    border: 2px solid #FCD34D;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 50px;
+    background: white;
+    transition: var(--transition);
+}
+
+.note-reply-box textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+.note-reply-box .btn {
+    align-self: flex-end;
+}
+

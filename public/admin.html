@@ -571,7 +571,14 @@
                 container.innerHTML = '<h4>💬 历史批注</h4>' + data.data.map(n => `
                     <div class="note-item">
                         <div class="note-content">${n.content}</div>
-                        <div class="note-time">${n.created_at}</div>
+                        <div class="note-time">${new Date(n.created_at).toLocaleString('zh-CN')}</div>
+                        ${n.employee_reply ? `
+                            <div class="note-reply">
+                                <span class="note-reply-label">🙋 员工回复：</span>
+                                <span class="note-reply-text">${n.employee_reply}</span>
+                                <div class="note-reply-time">${n.replied_at ? new Date(n.replied_at).toLocaleString('zh-CN') : ''}</div>
+                            </div>
+                        ` : '<div class="note-reply pending">⏳ 等待员工回复</div>'}
                     </div>
                 `).join('');
             } else {

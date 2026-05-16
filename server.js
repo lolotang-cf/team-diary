@@ -73,6 +73,8 @@ async function initDatabase() {
                 id SERIAL PRIMARY KEY,
                 report_id INTEGER NOT NULL REFERENCES daily_reports(id) ON DELETE CASCADE,
                 content TEXT,
+                employee_reply TEXT,
+                replied_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
@@ -116,7 +118,9 @@ async function initDatabase() {
             `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS follow_result TEXT`,
             `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS notes TEXT`,
             `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS tasks TEXT`,
-            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
+            `ALTER TABLE daily_reports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`,
+            `ALTER TABLE admin_notes ADD COLUMN IF NOT EXISTS employee_reply TEXT`,
+            `ALTER TABLE admin_notes ADD COLUMN IF NOT EXISTS replied_at TIMESTAMP`
         ];
         for (const sql of migrations) {
             try { await client.query(sql); } catch(e) { /* 字段已存在则忽略 */ }
@@ -433,6 +437,31 @@ app.get('/api/reports/:id/notes', async (req, res) => {
         res.json({ success: true, data: result.rows });
     } catch (err) {
         res.json({ success: false, message: '查询失败' });
+    }
+});
+
+// 员工回复批注
+app.post('/api/notes/:id/reply', async (req, res) => {
+    const { id } = req.params;
+    const { reply } = req.body;
+    if (!reply || !reply.trim()) {
+        return res.json({ success: false, message: '回复内容不能为空' });
+    }
+    try {
+        const result = await pool.query(
+            `UPDATE admin_notes SET employee_reply = $1, replied_at = CURRENT_TIMESTAMP
+             WHERE id = $2 RETURNING *`,
+            [reply.trim(), id]
+        );
+        if (result.rows.length === 0) {
+            return res.json({ success: false, message: '批注不存在' });
+        }
+        const note = result.rows[0];
+        io.emit('note_replied', { report_id: note.report_id, note });
+        res.json({ success: true, data: note });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, message: '回复失败' });
     }
 });
 

@@ -86,6 +86,19 @@
                         <button type="submit" class="btn btn-primary btn-large">💾 提交日报</button>
                     </div>
                 </form>
+
+                <!-- 批注提醒 -->
+                <div id="noteAlertBox" class="note-alert-box hidden">
+                    <div class="note-alert-header">
+                        <span class="note-alert-badge">📢</span>
+                        <span class="note-alert-title">管理员批注提醒</span>
+                    </div>
+                    <div id="noteAlertContent" class="note-alert-content"></div>
+                    <div id="noteReplyBox" class="note-reply-box hidden">
+                        <textarea id="noteReplyInput" rows="2" placeholder="输入你的回复/确认内容..."></textarea>
+                        <button type="button" onclick="submitNoteReply()" class="btn btn-primary btn-small">✅ 确认回复</button>
+                    </div>
+                </div>
             </section>
         </main>
     </div>
@@ -103,7 +116,7 @@
                 </svg>
             </div>
             <h3 class="success-title">提交成功</h3>
-            <p class="success-desc">日报已保存，感谢你的填写！</p>
+            <p class="success-desc">日报已提交，祝你工作顺利</p>
         </div>
     </div>
 
@@ -114,6 +127,8 @@
         let socket = null;
         let employees = [];
         let taskCounter = 0;
+        let currentReportId = null;
+        let pendingNotes = [];
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
@@ -172,6 +187,16 @@
                 document.getElementById('employeeSelectSection').classList.add('hidden');
                 document.getElementById('diaryFormSection').classList.remove('hidden');
                 await loadTodayReport();
+                // 加载批注提醒
+                if (currentEmployee) {
+                    const today = new Date().toISOString().split('T')[0];
+                    const res = await fetch(`/api/reports/employee/${currentEmployee.id}?start_date=${today}&end_date=${today}`);
+                    const data = await res.json();
+                    if (data.success && data.data.length > 0) {
+                        currentReportId = data.data[0].id;
+                        await loadNotesForReport(currentReportId);
+                    }
+                }
             }
         }
 
@@ -393,6 +418,107 @@
                 if (successModalTimer) clearTimeout(successModalTimer);
             }
         });
+        // ==================== 批注提醒与回复 ====================
+        // 加载批注并判断是否提醒
+        async function loadNotesForReport(reportId) {
+            try {
+                const res = await fetch(`/api/reports/${reportId}/notes`);
+                const data = await res.json();
+                if (data.success) {
+                    const notes = data.data;
+                    const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    // 筛选出"未回复"且"今天或昨天"的批注
+                    pendingNotes = notes.filter(n => {
+                        if (n.employee_reply && n.employee_reply.trim()) return false;
+                        const created = new Date(n.created_at);
+                        const createdDate = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+                        const diffDays = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
+                        return diffDays >= 0 && diffDays <= 1;
+                    });
+                    if (pendingNotes.length > 0) {
+                        renderNoteAlert();
+                        showToast(`📢 你有 ${pendingNotes.length} 条管理批注待回复`, 'error');
+                    } else {
+                        hideNoteAlert();
+                    }
+                }
+            } catch (err) {
+                console.error('加载批注失败', err);
+            }
+        }
+
+        // 渲染批注提醒栏
+        function renderNoteAlert() {
+            const box = document.getElementById('noteAlertBox');
+            const content = document.getElementById('noteAlertContent');
+            const replyBox = document.getElementById('noteReplyBox');
+
+            if (pendingNotes.length === 0) {
+                hideNoteAlert();
+                return;
+            }
+
+            // 显示最新一条未回复批注
+            const note = pendingNotes[0];
+            content.innerHTML = `
+                <div class="note-alert-item">
+                    <div class="note-alert-meta">
+                        <span class="note-alert-time">🕐 ${new Date(note.created_at).toLocaleString('zh-CN')}</span>
+                    </div>
+                    <div class="note-alert-text">${escapeHtml(note.content)}</div>
+                </div>
+            `;
+            box.classList.remove('hidden');
+            replyBox.classList.remove('hidden');
+        }
+
+        // 隐藏批注提醒
+        function hideNoteAlert() {
+            document.getElementById('noteAlertBox').classList.add('hidden');
+        }
+
+        // 提交批注回复
+        async function submitNoteReply() {
+            const reply = document.getElementById('noteReplyInput').value.trim();
+            if (!reply) {
+                showToast('请输入回复内容', 'error');
+                return;
+            }
+            if (pendingNotes.length === 0) return;
+
+            const noteId = pendingNotes[0].id;
+            try {
+                const res = await fetch(`/api/notes/${noteId}/reply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reply })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('回复已提交');
+                    document.getElementById('noteReplyInput').value = '';
+                    // 移除已回复的批注，继续显示剩余待回复
+                    pendingNotes.shift();
+                    if (pendingNotes.length > 0) {
+                        renderNoteAlert();
+                    } else {
+                        hideNoteAlert();
+                    }
+                } else {
+                    showToast('回复失败', 'error');
+                }
+            } catch (err) {
+                showToast('回复失败', 'error');
+            }
+        }
+
+        // 工具函数：转义HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     </script>
 </body>
 </html>
