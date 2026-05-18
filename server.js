@@ -173,7 +173,8 @@ app.post('/api/employees', async (req, res) => {
 // 提交/更新日报
 app.post('/api/reports', async (req, res) => {
     const {
-        employee_id, report_date, task_category, customer_name, customer_id,
+        employee_id, report_date, tasks,
+        task_category, customer_name, customer_id,
         task_content, progress, completion_status, achievement, difficulties,
         next_plan, follow_result, notes
     } = req.body;
@@ -197,14 +198,15 @@ app.post('/api/reports', async (req, res) => {
                     task_category = $1, customer_name = $2, customer_id = $3,
                     task_content = $4, progress = $5, completion_status = $6,
                     achievement = $7, difficulties = $8, next_plan = $9,
-                    follow_result = $10, notes = $11, updated_at = CURRENT_TIMESTAMP
-                WHERE employee_id = $12 AND report_date = $13
+                    follow_result = $10, notes = $11, tasks = $12,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE employee_id = $13 AND report_date = $14
                 RETURNING *
             `, [
                 task_category || '', customer_name || '', customer_id || '',
                 task_content || '', progress || 0, completion_status || '',
                 achievement || '', difficulties || '', next_plan || '',
-                follow_result || '', notes || '',
+                follow_result || '', notes || '', tasks || '[]',
                 employee_id, report_date
             ]);
             report = result.rows[0];
@@ -215,14 +217,14 @@ app.post('/api/reports', async (req, res) => {
                 INSERT INTO daily_reports (
                     employee_id, report_date, task_category, customer_name, customer_id,
                     task_content, progress, completion_status, achievement, difficulties,
-                    next_plan, follow_result, notes
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                    next_plan, follow_result, notes, tasks
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 RETURNING *
             `, [
                 employee_id, report_date, task_category || '', customer_name || '',
                 customer_id || '', task_content || '', progress || 0, completion_status || '',
                 achievement || '', difficulties || '', next_plan || '',
-                follow_result || '', notes || ''
+                follow_result || '', notes || '', tasks || '[]'
             ]);
             report = result.rows[0];
             io.emit('report_added', report);
